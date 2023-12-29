@@ -39,7 +39,7 @@ vector<Token> lexer(string code) {
         else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
             tokens.push_back({ "IDENTIFIER", matched });
         }
-        else if (regex_match(matched, regex("\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b"))) {
+        else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
             tokens.push_back({ "CONSTANT", matched });
         }
         else if (regex_match(matched, regex("\"[^\"]*\""))) {
