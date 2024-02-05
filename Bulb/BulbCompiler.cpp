@@ -2,31 +2,9 @@
 #include <regex>
 #include <vector>
 #include <string>
-#include <map>
-#include <stdexcept>
-#include <tuple>
 #include "Constructor.h"
 
 using namespace std;
-
-#define COMPILER_VERSION = "0.1"
-#define MAX_COMPILE_SCRIPT_VERSION = "0.1"
-
-#define printf //
-
-#ifdef _DEBUG
-#undef printf
-#endif
-
-
-/*
- *        ____        ____
- *       / __ )__  __/ / /_
- *      / __  / / / / / __ \
- *     / /_/ / /_/ / / /_/ /
- *    /_____/\__,_/_/_.___/
- *
- */
 
 
 enum class TokenType {
@@ -75,52 +53,6 @@ vector<string> keywords = {
     "const"
 };
 
-/*
-class ASTNode {
-public:
-    virtual ~ASTNode() {}
-    virtual void print(int indent = 0) const = 0;
-};
-
-class MainNode : public ASTNode {
-public:
-    string fileName;
-    vector<string> importFiles;
-    vector<ASTNode> members;
-
-    void print(int indent = 0) const override {
-        cout << "[" << fileName << "]" << endl;
-        for (const auto& member : members) {
-            member.print(indent + 2);
-        }
-    }
-};
-
-class ClassDeclarationNode : public ASTNode {
-public:
-    string className;
-    vector<ASTNode> members;
-    
-    void print(int indent = 0) const override {
-        cout << string(indent, ' ') << "Class: " << className << endl;
-        for (const auto& member : members) {
-            member.print(indent + 2);
-        }
-    }
-};
-
-enum class NodeType {
-    IMPORT,
-    CLASS_DECLARE,
-    FUNC_DECLARE,
-    FUNC_EXEC,
-    VAR_DECLEAR,
-    VAR_READ,
-    VAR_WRITE,
-    OBJECT_CREATE,
-
-};
-*/
 
 enum class MessageType {
     ERROR,
@@ -151,6 +83,7 @@ struct RuntimeError {
         this->message = message;
     }
 };
+
 
 class BulbCompiler {
 private:
@@ -450,17 +383,11 @@ private:
                                     for (int k = j; k < findNextSemicolon(tokens, j); k++) { // read line
                                         if (tokens.at(k).type == TokenType::KEYWORD) {
                                             if (tokens.at(k).value == "if") {
-                                                if (tokens.at(k + 1).value != "(") {
-                                                    throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected if statement", "condition should be given after if keyword."));
-                                                }
                                                 Constructor if_statement = Constructor();
                                                 if_statement.setName("if");
-                                                if (tokens.at(k + 3).value == ")") { // single condition
-                                                    if_statement.addProperty("condition", tokens.at(k + 2).value);
-                                                }
-                                                else { // operator condition
-                                                    getOperation(tokens, k + 2);
-                                                }
+                                                Constructor condition = Constructor();
+                                                condition.setName("condition");
+                                                if_statement.addProperty(condition);
                                             }
                                         }
                                     }
@@ -488,10 +415,6 @@ private:
         }
 
         return members;
-    }
-
-    Constructor getOperation(vector<Token> tokens, int cursor) {
-
     }
 
     string colorString(string str, int color) {
@@ -634,54 +557,3 @@ public:
         }
     }
 };
-
-class BulbVirtualMachine {
-private:
-
-public:
-    void Run(string code) {
-        
-    }
-};
-
-int main() {
-    string exampleCode = R"(import System;
-
-class Foo {
-	
-	var public int moo;
-	var public int foo;
-    
-    construct(int _moo, int _foo, int _boo) {
-        moo = _moo;
-        foo = _foo;
-        var boo = _boo + 1;
-        foo += boo;
-    }
-	
-	func ConvertTo16() -> string {
-		return Boo + 1;
-	}
-}
-
-class Main {
-	
-    @Entry
-	func main() {
-		Foo foo = new Foo(10, 7, 1);
-        foo.ConvertTo16();
-        
-        if (true) {
-            
-        }
-	}
-}
-    )";
-
-    BulbCompiler* compiler = new BulbCompiler;
-    compiler->Compile(exampleCode);
-
-    delete compiler;
-
-    return 0;
-}
