@@ -8,6 +8,7 @@
 #include "Constructor.h"
 #include "Execution.h"
 #include <sstream>
+#include <format>
 
 using namespace std;
 
@@ -43,6 +44,13 @@ enum class TokenType {
 struct Token {
 	TokenType type;
 	string value;
+	int line;
+
+	Token(TokenType type, string value, int line) {
+		this->type = type;
+		this->value = value;
+		this->line = line;
+	}
 };
 
 vector<string> keywords = {
@@ -85,13 +93,13 @@ enum class MessageType {
 
 struct CompileMessage {
 	MessageType type;
-	string name;
 	string message;
+	int line_index;
 
-	CompileMessage(MessageType type, string name, string message) {
+	CompileMessage(MessageType type, string message, int line_index) {
 		this->type = type;
-		this->name = name;
 		this->message = message;
+		this->line_index = line_index;
 	}
 };
 
@@ -172,7 +180,7 @@ private:
 			isFirstToken = true;
 			for (int i = 0; i < code_lines[h].size(); i++) {
 				if (k > 3) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", h + 1));
 					break;
 				}
 				if (isFirstToken) {
@@ -231,6 +239,10 @@ private:
 				}
 			}
 			k = 0;
+			if (isLiteralOpen) {
+				throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor literal. Quotation mark should be closed.", h + 1));
+				isLiteralOpen = false;
+			}
 		}
 
 		return tokens;
@@ -252,16 +264,16 @@ private:
 				vector<string> code_line_splits = split(code_lines[i], ' ');
 				if (code_line_splits.at(0) == "#define") {
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
@@ -271,16 +283,16 @@ private:
 				
 				if (code_line_splits.at(0) == "#undef") {
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
@@ -296,16 +308,16 @@ private:
 				
 				if (code_line_splits.at(0) == "#if") {
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
@@ -323,21 +335,21 @@ private:
 				
 				if (code_line_splits.at(0) == "#elif") {
 					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "#elif can be used after #if", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "#elif can be used after #if", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
@@ -360,17 +372,17 @@ private:
 				
 				if (code_line_splits.at(0) == "#else") {
 					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "#else can be used after #if", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "#else can be used after #if", i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][1] != "") || (preprocessor_tokens[i][2] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
@@ -387,17 +399,17 @@ private:
 				
 				if (code_line_splits.at(0) == "#endif") {
 					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "#endif can be used after #if", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "#endif can be used after #if", i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][1] != "") || (preprocessor_tokens[i][2] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
@@ -407,66 +419,77 @@ private:
 				}
 				
 				if (code_line_splits.at(0) == "#message") {
-					if ((code_line_splits.at(1) == "") || (code_line_splits.at(2) == "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+					if (code_line_splits.at(1) == "") {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
-					string name, message;
-					name = code_line_splits.at(1);
-					message = code_line_splits.at(2);
+					if ((code_line_splits.at(1)[0] != '\"') || (code_line_splits.at(1)[code_line_splits.at(1).size() - 1] != '\"')) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter. Literal required.", i + 1));
+						continue;
+					}
 
-					throwCompileMessage(CompileMessage(MessageType::MESSAGE, "[Preprocessor]" + name, message));
+					string message;
+					message = code_line_splits.at(1);
+
+					throwCompileMessage(CompileMessage(MessageType::MESSAGE, "[Preprocessor]" + message, i + 1));
 
 					continue;
 				}
 				
 				if (code_line_splits.at(0) == "#warning") {
-					if ((code_line_splits.at(1) == "") || (code_line_splits.at(2) == "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+					if (code_line_splits.at(1) == "") {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
-					string name, message;
-					name = code_line_splits.at(1);
-					message = code_line_splits.at(2);
+					if ((code_line_splits.at(1)[0] != '\"') || (code_line_splits.at(1)[code_line_splits.at(1).size() - 1] != '\"')) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter. Literal required.", i + 1));
+						continue;
+					}
 
-					throwCompileMessage(CompileMessage(MessageType::WARNING, "[Preprocessor]" + name, message));
+					string message;
+					message = code_line_splits.at(1);
+
+					throwCompileMessage(CompileMessage(MessageType::WARNING, "[Preprocessor]" + message, i + 1));
 
 					continue;
 				}
 				
 				if (code_line_splits.at(0) == "#error") {
-					if ((code_line_splits.at(1) == "") || (code_line_splits.at(2) == "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", ""));
+					if (code_line_splits.at(1) == "") {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", i + 1));
 						continue;
 					}
 
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", ""));
+					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", i + 1));
 						continue;
 					}
 
-					string name, message;
-					name = code_line_splits.at(1);
-					message = code_line_splits.at(2);
+					if ((code_line_splits.at(1)[0] != '\"') || (code_line_splits.at(1)[code_line_splits.at(1).size() - 1] != '\"')) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter. Literal required.", i + 1));
+						continue;
+					}
 
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "[Preprocessor]" + name, message));
+					string message;
+					message = code_line_splits.at(1);
+
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "[Preprocessor]" + message, i + 1));
 
 					continue;
 				}
 
-				// not ready
 				if (code_line_splits.at(0) == "#pragma") {
 					if (code_line_splits.size() > 1) {
 						if (code_line_splits.at(1) == "warning") {
@@ -483,6 +506,8 @@ private:
 
 					continue;
 				}
+
+				throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unsupported preprocessor command. ").append(code_line_splits.at(0)).append(" command doesn't exist"), i + 1));
 			}
 		}
 
@@ -512,30 +537,34 @@ private:
 		regex tokenRegex(R"(->|\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.)");
 		// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 		smatch match;
-		while (regex_search(code, match, tokenRegex)) {
-			string matched = match.str();
-			if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
-				tokens.push_back({ TokenType::KEYWORD, matched });
+
+		vector<string> code_split = split(code, '\n');
+		for (int i = 0; i < code_split.size(); i++) {
+			while (regex_search(code_split[i], match, tokenRegex)) {
+				string matched = match.str();
+				if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
+					tokens.push_back(Token(TokenType::KEYWORD, matched, i));
+				}
+				else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
+					tokens.push_back(Token(TokenType::IDENTIFIER, matched, i));
+				}
+				else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
+					tokens.push_back(Token(TokenType::CONSTANT, matched, i));
+				}
+				else if (regex_match(matched, regex("\"[^\"]*\""))) {
+					tokens.push_back(Token(TokenType::LITERAL, matched, i));
+				}
+				else if (regex_match(matched, regex(R"(\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!)"))) {
+					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
+				}
+				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.)"))) {
+					tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
+				}
+				else {
+					throw invalid_argument("Invalid Syntax");
+				}
+				code = match.suffix().str();
 			}
-			else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
-				tokens.push_back({ TokenType::IDENTIFIER, matched });
-			}
-			else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
-				tokens.push_back({ TokenType::CONSTANT, matched });
-			}
-			else if (regex_match(matched, regex("\"[^\"]*\""))) {
-				tokens.push_back({ TokenType::LITERAL, matched });
-			}
-			else if (regex_match(matched, regex(R"(\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!)"))) {
-				tokens.push_back({ TokenType::OPERATOR, matched });
-			}
-			else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.)"))) {
-				tokens.push_back({ TokenType::SPECIAL_SYMBOL, matched });
-			}
-			else {
-				throw invalid_argument("Invalid Syntax");
-			}
-			code = match.suffix().str();
 		}
 
 		return tokens;
@@ -570,12 +599,12 @@ private:
 		Constructor class_define = Constructor();
 		class_define.setName("class");
 		if (tokens.at(cursor + 1).type != TokenType::IDENTIFIER) {
-			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class name", "Class name should not be Keywords, Operators, Special_Characters. Try using other name."));
+			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class name. Class name should not be Keywords, Operators, Special_Characters. Try using other name.", i + 1));
 			return make_tuple(class_define, cursor, false);
 		}
 		class_define.addProperty("name", tokens.at(cursor + 1).value);
 		if (tokens.at(cursor + 2).value != "{") {
-			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class declear syntax", "class class_name {\n  ...\n}\n is the correct syntax for class declearation."));
+			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class declear syntax. Class class_name {\n  ...\n}\n is the correct syntax for class declearation.", i + 1));
 			return make_tuple(class_define, cursor + 1, false);
 		}
 	}
@@ -786,7 +815,16 @@ int main() {
 	//    string** preprocessorTokens = getPreprocessorTokens(preprocessor);
 
 #ifdef _DEBUG
-	string exampleCode = R"(import System;
+	string exampleCode = R"(#if LEL
+#endif
+#define TEST
+
+#if TEST
+import Test.UnitTest.ITestable;
+#else
+#error "test is required"
+#endif
+import System;
 
 class Foo {
 	
