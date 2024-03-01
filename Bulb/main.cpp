@@ -56,17 +56,19 @@ struct Token {
 vector<string> keywords = {
 	"import",
 
+	// Access Modifier
 	"public",
 	"private",
 
+	// Declear Statement
 	"var",
 	"func",
 	"class",
 	"struct",
 	"construct",
 
-	"->",
-
+	// Date Type
+	"object",
 	"int",
 	"string",
 	"bool",
@@ -77,13 +79,34 @@ vector<string> keywords = {
 	"null",
 	"void",
 
-	"return",
+	"->",
 
+	// tag
 	"@Entry",
 
+	// memory
 	"new",
 	"deep",
-	"const"
+	"const",
+
+	// Conditional Statement
+	"if",
+	"else",
+	"switch",
+	"case",
+	"default",
+
+	// Iterative Statement
+	"for",
+	"while",
+	"do",
+	"foreach",
+
+	// Jumping Statement
+	"break",
+	"continue",
+	"goto",
+	"return"
 };
 
 enum class MessageType {
@@ -546,14 +569,17 @@ private:
 				return i;
 			}
 		}
+		return -1;
 	}
 
-	int p_find_next_ELSE(string** preprocessor_tokens, int lines, int cursor) {
-		for (int i = cursor; i < lines; i++) {
-			if (preprocessor_tokens[i][0] == "#ELSE") {
+	int t_find_next(vector<Token> tokens, int cursor, vector<string> target) {
+		for (int i = cursor; i < tokens.size(); i++) {
+			auto result = find(target.begin(), target.end(), tokens[i].value);
+			if (result != target.end()) {
 				return i;
 			}
 		}
+		return -1;
 	}
 
 	vector<Token> lexer(string code) {
@@ -632,16 +658,82 @@ private:
 			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class declear syntax. Class body missing. Class class_name {\n  ...\n}\n is the correct syntax for class declearation.", currentFileName, tokens[cursor + 1].line + 1));
 			return make_tuple(class_define, cursor + 1, false);
 		}
-		class_define = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1)));
+		class_define = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
 	}
 
 	Constructor getClassMembers(vector<Token> tokens, Scope scope) {
 		Constructor classMembers = Constructor();
 		classMembers.setName("members");
+		Constructor classConstructor = getClassConstructors(tokens, scope);
+		classConstructor.addProperty(classConstructor);
 		Constructor classVariables = getClassVariables(tokens, scope);
 		classMembers.addProperty(classVariables);
 		Constructor classFunctions = getClassFunctions(tokens, scope);
 		classMembers.addProperty(classFunctions);
+	}
+
+	Constructor getClassConstructors(vector<Token> tokens, Scope scope) {
+		Constructor classConstructor = Constructor();
+		classConstructor.setName("constructors");
+		for (int i = scope.start; i <= scope.end; i++) {
+			if (tokens[i].value == "construct") {
+				Constructor constructor_declear = Constructor();
+				constructor_declear.setName("constructor");
+
+				if (tokens[i + 1].value != "(") {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected constructor declear syntax.\nconstruct(param a, param b, ... ) {\n  ...\n}\n is the correct syntax for function declearation.", currentFileName, tokens[i + 4].line));
+					continue;
+				}
+
+				Constructor parameters = Constructor();
+				parameters.setName("parameters");
+				int k = 0;
+				for (int j = i + 2; j < findBracketClose(tokens, i + 2, 1); j++) {
+					if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter type. Type expected.", currentFileName, tokens[j].line));
+						i = t_find_next(tokens, j, vector<string> {","});
+						continue;
+					}
+					if (tokens[j + 1].type != TokenType::IDENTIFIER) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter name. Type expected.", currentFileName, tokens[j + 1].line));
+						i = t_find_next(tokens, j + 1, vector<string> {","});
+						continue;
+					}
+					if (tokens[j + 2].value != ",") {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[j + 1].line));
+						i = t_find_next(tokens, j + 2, vector<string> {","});
+						continue;
+					}
+					string type = tokens[j].value;
+					string name = tokens[j + 1].value;
+					Constructor param = Constructor();
+					param.setName(string("param").append(to_string(k)));
+					param.addProperty("type", type);
+					param.addProperty("name", name);
+					parameters.addProperty(param);
+					k++;
+					j = j + 2;
+				}
+				constructor_declear.addProperty(parameters);
+
+				i = t_find_next(tokens, i + 2, vector<string> {")"});
+
+				if (tokens[i + 1].value != "{") {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected constructor syntax. Parameter should only have its type and name.", currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				Constructor constructor_body = getConstructorBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
+				constructor_declear.addProperty(constructor_body);
+
+				classConstructor.addProperty(constructor_declear);
+			}
+		}
+	}
+
+	Constructor getConstructorBody(vector<Token> tokens, Scope scope) {
+		Constructor constructorBody = Constructor();
+		constructorBody.setName("body");
 	}
 
 	Constructor getClassVariables(vector<Token> tokens, Scope scope) {
@@ -649,9 +741,40 @@ private:
 		classVariables.setName("variables");
 		for (int i = scope.start; i <= scope.end; i++) {
 			if (tokens[i].value == "var") {
-				Constructor var_decl = Constructor();
-				var_decl.setName("var_decl");
-				classVariables.addProperty(var_decl);
+				Constructor var_declear = Constructor();
+				var_declear.setName("var_declear");
+
+				// get variable access_modifier
+				if ((tokens[i + 1].value == "public") || (tokens[i + 1].value == "private")) {
+					// var [access_modifier] [type] [var_name
+					var_declear.addProperty("access_modifier", tokens[i + 1].value);
+					i = i + 2;
+				}
+				else {
+					// var [type] [var_name];
+					i = i + 1;
+				}
+
+				// get variable type
+				if ((tokens[i].type != TokenType::KEYWORD) && (tokens[i].type != TokenType::IDENTIFIER)) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i].line));
+					continue;
+				}
+
+				// get variable name
+				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(tokens[i + 1].value).append("\'."), currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if (tokens[i + 2].value != ";") {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				classVariables.addProperty(var_declear);
+
+				i = findNextSemicolon(tokens, i + 2);
 			}
 		}
 	}
@@ -662,26 +785,29 @@ private:
 		for (int i = scope.start; i <= scope.end; i++) {
 			if (tokens[i].value == "func") {
 				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected function name. Keywords cannot be used as function name. Use other name instead of \'").append(tokens.at(i + 3).value).append("\'."), currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected function name. Check the function naming rules. Use other name instead of \'").append(tokens[i + 1].value).append("\'."), currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
-				Constructor func_decl = Constructor();
-				func_decl.setName("func_decl");
-				func_decl.addProperty("name", tokens[i + 1].value);
+				Constructor function_declear = Constructor();
+				function_declear.setName("func_decl");
+				function_declear.addProperty("name", tokens[i + 1].value);
 
 				// check return type
-				if (tokens[i + 2].value != "->") {
+				if (tokens[i + 2].value != "->") { // does not have return type
 					if (tokens[i + 2].value != "(") {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected function declear syntax.\nfunc function_name(param a, param b, ... ) -> return_type {\n  ...\n}\n is the correct syntax for function declearation.", currentFileName, tokens[i + 2].line));
 						continue;
 					}
-					func_decl.addProperty("return_exist", "0");
+					function_declear.addProperty("return_type", "");
 					i = i + 2;
 				}
-				else {
-					func_decl.addProperty("return_exist", "1");
-					func_decl.addProperty("return_type", tokens[i + 3].value);
+				else { // has return type
+					if ((tokens[i + 3].type != TokenType::KEYWORD) && (tokens[i + 3].type != TokenType::IDENTIFIER)) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 3].line));
+						continue;
+					}
+					function_declear.addProperty("return_type", tokens[i + 3].value);
 
 					if (tokens[i + 4].value != "(") {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected function declear syntax.\nfunc function_name(param a, param b, ... ) -> return_type {\n  ...\n}\n is the correct syntax for function declearation.", currentFileName, tokens[i + 4].line));
@@ -690,15 +816,73 @@ private:
 					i = i + 4;
 				}
 
-				// TODO: get function parameters
-				int j = i + 1;
-				while (j < findBracketClose(tokens, i + 1, 1)) {
+				// get function parameters
+				Constructor parameters = Constructor();
+				parameters.setName("parameters");
+				int k = 0;
+				for (int j = i + 1; j < findBracketClose(tokens, i + 1, 1); j++) {
+					if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter type. Type expected.", currentFileName, tokens[j].line));
+						i = t_find_next(tokens, j, vector<string> {","});
+						continue;
+					}
+					if (tokens[j + 1].type != TokenType::IDENTIFIER) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter name. Type expected.", currentFileName, tokens[j + 1].line));
+						i = t_find_next(tokens, j + 1, vector<string> {","});
+						continue;
+					}
+					if (tokens[j + 2].value != ",") {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[j + 1].line));
+						i = t_find_next(tokens, j + 2, vector<string> {","});
+						continue;
+					}
+					string type = tokens[j].value;
+					string name = tokens[j + 1].value;
+					Constructor param = Constructor();
+					param.setName(string("param").append(to_string(k)));
+					param.addProperty("type", type);
+					param.addProperty("name", name);
+					parameters.addProperty(param);
+					k++;
+					j = j + 2;
+				}
+				function_declear.addProperty(parameters);
 
+				i = t_find_next(tokens, i + 1, vector<string> {")"});
+
+				if (tokens[i + 1].value != "{") {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[i + 1].line));
+					continue;
 				}
 
-				classFunctions.addProperty(func_decl);
+				Constructor function_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
+				function_declear.addProperty(function_body);
+
+				classFunctions.addProperty(function_declear);
 			}
 		}
+	}
+
+	Constructor getFunctionBody(vector<Token> tokens, Scope scope) {
+		Constructor functionBody = Constructor();
+		functionBody.setName("body");
+		vector<vector<Token>> split = split_token(tokens, scope, ";");
+		for (int i = 0; i < split.size(); i++) {
+
+		}
+	}
+
+	vector<vector<Token>> split_token(vector<Token> tokens, Scope scope, string delimiter) {
+		vector<vector<Token>> split;
+		vector<Token> k;
+		for (int i = scope.start; i <= scope.end; i++) {
+			k.push_back(tokens[i]);
+			if (tokens[i].value == delimiter) {
+				split.push_back(k);
+				k.clear();
+			}
+		}
+		return split;
 	}
 
 	string colorString(string str, int color) {
@@ -706,20 +890,15 @@ private:
 	}
 
 	// check if the type is available to use for variable type or function return type
-	bool checkType(Token token) {
-		if (token.type != TokenType::IDENTIFIER) {
-			cout << token.value << endl;
-			auto v = token.value;
-			if ((v == "int") || (v == "string") || (v == "bool") || (v == "float") || (v == "double") || (v == "char") || (v == "short")) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else {
+	bool checkType(string type) {
+		// check implemented types
+		if ((type == "int") || (type == "string") || (type == "bool") || (type == "float") || (type == "double") || (type == "char") || (type == "short")) {
 			return true;
 		}
+
+		// TODO: check type with decleared class
+
+		return false;
 	}
 
 	int findBraceClose(vector<Token> tokens, int cursor, int current_brace) {
@@ -891,7 +1070,7 @@ int main() {
 	//    string** preprocessorTokens = getPreprocessorTokens(preprocessor);
 
 #ifdef _DEBUG
-	string exampleCode = "#if LEL\n#endif\n#define TEST\n\n#if L_TEST\nimport Test.UnitTest.ITestable;\n#else\n#error \"test is required\"\n#endif\nimport System;\n\nclass Foo {\n    var public int moo;\n    var public int foo;\n    \n    construct(int _moo, int _foo, int _boo) {\n        moo = _moo;\n        foo = _foo;\n        var boo = _boo + 1;\n        foo += boo;\n    }\n    \n    func ConvertTo16() -> string {\n        return Boo + 1;\n    }\n}\n\nclass Main {\n    \n    @Entry\n    func main() {\n        Foo foo = new Foo(10, 7, 1);\n        foo.ConvertTo16();\n        \n        string str = \"+\";\n        \n        if (true) {\n            \n        }\n    }\n}";
+	string exampleCode = "#if LEL\n#endif\n#define TEST\n\n#if TEST\nimport Test.UnitTest.ITestable;\n#else\n#error \"test is required\"\n#endif\nimport System;\n\nclass Foo {\n    var public int moo;\n    var public int foo;\n    \n    construct(int _moo, int _foo, int _boo) {\n        moo = _moo;\n        foo = _foo;\n        var boo = _boo + 1;\n        foo += boo;\n    }\n    \n    func ConvertTo16() -> string {\n        return Boo + 1;\n    }\n}\n\nclass Main {\n    \n    @Entry\n    func main() {\n        Foo foo = new Foo(10, 7, 1);\n        foo.ConvertTo16();\n        \n        string str = \"+\";\n        \n        if (true) {\n            \n        }\n    }\n}";
 	//string exampleCode = "#if LEL\n#endif\n#define TEST\n\n#if L_TEST\nimport Test.UnitTest.ITestable;\n#else\n#error \"test is required\"\n#endif\nimport System;\n\nclass Foo {\n\tvar public int moo;\n\tvar public int foo;\n\t\n\tconstruct(int _moo, int _foo, int _boo) {\n\t\tmoo = _moo;\n\t\tfoo = _foo;\n\t\tvar boo = _boo + 1;\n\t\tfoo += boo;\n\t}\n\t\n\tfunc ConvertTo16() -> string {\n\t\treturn Boo + 1;\n\t}\n}\n\nclass Main {\n\t\n\t@Entry\n\tfunc main() {\n\t\tFoo foo = new Foo(10, 7, 1);\n\t\tfoo.ConvertTo16();\n\t\t\n\t\tstring str = \"+\";\n\t\t\n\t\tif (true) {\n\t\t\t\n\t\t}\n\t}\n}";
 	
 	BulbCompiler* compiler = new BulbCompiler;
