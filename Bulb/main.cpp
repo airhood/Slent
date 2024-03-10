@@ -582,10 +582,10 @@ private:
 		return -1;
 	}
 
-	vector<Token> lexer(string code) {
+	vector<Token> tokenizer(string code) {
 		vector<Token> tokens;
 
-		regex tokenRegex(R"(->|\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.)");
+		regex tokenRegex(R"(->|\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
 		// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 		smatch match;
 
@@ -608,13 +608,13 @@ private:
 				else if (regex_match(matched, regex(R"(\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!)"))) {
 					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 				}
-				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.)"))) {
+				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,)"))) {
 					tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 				}
 				else {
 					throw invalid_argument("Invalid Syntax");
 				}
-				code = match.suffix().str();
+				code_split[i] = match.suffix().str();
 			}
 		}
 
@@ -659,6 +659,8 @@ private:
 			return make_tuple(class_define, cursor + 1, false);
 		}
 		class_define = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
+
+		return make_tuple(class_define, findBraceClose(tokens, cursor + 3, 1), true);
 	}
 
 	Constructor getClassMembers(vector<Token> tokens, Scope scope) {
@@ -670,6 +672,8 @@ private:
 		classMembers.addProperty(classVariables);
 		Constructor classFunctions = getClassFunctions(tokens, scope);
 		classMembers.addProperty(classFunctions);
+
+		return classMembers;
 	}
 
 	Constructor getClassConstructors(vector<Token> tokens, Scope scope) {
@@ -695,11 +699,17 @@ private:
 						continue;
 					}
 					if (tokens[j + 1].type != TokenType::IDENTIFIER) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter name. Type expected.", currentFileName, tokens[j + 1].line));
+						if ((j + 1) >= findBracketClose(tokens, i + 2, 1)) {
+							break;
+						}
+						throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected parameter name.Check variable naming rules. Use other name istead of \'").append(tokens[j + 1].value).append("\'."), currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 1, vector<string> {","});
 						continue;
 					}
 					if (tokens[j + 2].value != ",") {
+						if ((j + 2) >= findBracketClose(tokens, i + 2, 1)) {
+							break;
+						}
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 2, vector<string> {","});
 						continue;
@@ -729,25 +739,120 @@ private:
 				classConstructor.addProperty(constructor_declear);
 			}
 		}
+
+		return classConstructor;
 	}
 
 	Constructor getConstructorBody(vector<Token> tokens, Scope scope) {
 		Constructor constructorBody = Constructor();
 		constructorBody.setName("body");
+		vector<vector<Token>> split = split_token(tokens, scope, ";");
+		int element_index = 0;
+		int variable_declear_index = 0;
+		for (int i = 0; i < split.size(); i++) {
+			if (split[i][0].value == ";") {
+				continue;
+			}
+
+			Constructor element = Constructor();
+			element.setName(string("element").append(to_string(element_index)));
+
+			if ((split[i][0].value == "const") && (split[i][1].value == "var")) { // declear constant variable
+				Constructor constant_variable_declear = Constructor();
+				constant_variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
+				constant_variable_declear.addProperty("isConst", "1");
+
+				if (split[i].size() < 3) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable type missing. Type expected.", currentFileName, tokens[i].line));
+					continue;
+				}
+
+				if ((split[i][2].value == "public") || (split[i][2].value == "private")) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected access modifier. Access modifier cannot be used inside function.", currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if ((split[i][2].type != TokenType::KEYWORD) && (split[i][2].type != TokenType::IDENTIFIER)) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
+					continue;
+				}
+				constant_variable_declear.addProperty("type", split[i][1].value);
+
+				if (split[i].size() < 5) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable name missing. Variable name expected.", currentFileName, split[i][2].line));
+					continue;
+				}
+
+				if (split[i][3].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(split[i][3].value).append("\'."), currentFileName, split[i][3].line));
+					continue;
+				}
+				constant_variable_declear.addProperty("name", split[i][2].value);
+
+				if (split[i][4].value == ";") {
+					constant_variable_declear.addProperty("init", "");
+				}
+				else if (split[i][4].value == "=") {
+					if ((split[i].size() < 7) || (split[i][5].value == ";")) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Expression expected.", currentFileName, split[i][5].line));
+						continue;
+					}
+
+					Constructor expression;
+				}
+				else {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, split[i][3].line));
+					continue;
+				}
+
+				variable_declear_index++;
+				constructorBody.addProperty(element);
+				element_index++;
+				continue;
+			}
+
+			if (split[i][0].value == "var") { // declear variable
+				Constructor variable_declear = Constructor();
+				variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
+				variable_declear.addProperty("isConst", "0");
+
+				variable_declear_index++;
+				constructorBody.addProperty(element);
+				element_index++;
+				continue;
+			}
+
+			tuple<Constructor, bool> expression = getExpression(split[i], 0, 0);
+			cout << get<bool>(expression) << endl;
+			if (!get<bool>(expression)) {
+				continue;
+			}
+
+			element.addProperty(get<Constructor>(expression));
+			constructorBody.addProperty(element);
+		}
+
+		return constructorBody;
 	}
 
 	Constructor getClassVariables(vector<Token> tokens, Scope scope) {
 		Constructor classVariables = Constructor();
 		classVariables.setName("variables");
+		int variable_declear_index = 0;
 		for (int i = scope.start; i <= scope.end; i++) {
+			if ((tokens[i].value == "construct") || (tokens[i].value == "func")) {
+				i = findBraceClose(tokens, t_find_next(tokens, i, vector<string> {"{"}), 0);
+				continue;
+			}
+
 			if (tokens[i].value == "var") {
-				Constructor var_declear = Constructor();
-				var_declear.setName("var_declear");
+				Constructor variable_declear = Constructor();
+				variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
 
 				// get variable access_modifier
 				if ((tokens[i + 1].value == "public") || (tokens[i + 1].value == "private")) {
 					// var [access_modifier] [type] [var_name
-					var_declear.addProperty("access_modifier", tokens[i + 1].value);
+					variable_declear.addProperty("access_modifier", tokens[i + 1].value);
 					i = i + 2;
 				}
 				else {
@@ -757,7 +862,7 @@ private:
 
 				// get variable type
 				if ((tokens[i].type != TokenType::KEYWORD) && (tokens[i].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
 					continue;
 				}
 
@@ -772,70 +877,89 @@ private:
 					continue;
 				}
 
-				classVariables.addProperty(var_declear);
+				classVariables.addProperty(variable_declear);
+				variable_declear_index++;
 
 				i = findNextSemicolon(tokens, i + 2);
 			}
 		}
+
+		return classVariables;
 	}
 
 	Constructor getClassFunctions(vector<Token> tokens, Scope scope) {
 		Constructor classFunctions = Constructor();
 		classFunctions.setName("func");
+		int function_declear_index = 0;
 		for (int i = scope.start; i <= scope.end; i++) {
 			if (tokens[i].value == "func") {
+				if ((i + 1) > scope.end) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function name missing.", currentFileName, tokens[i].line));
+					continue;
+				}
+
 				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected function name. Check the function naming rules. Use other name instead of \'").append(tokens[i + 1].value).append("\'."), currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
 				Constructor function_declear = Constructor();
-				function_declear.setName("func_decl");
+				function_declear.setName(string("function_declear").append(to_string(function_declear_index)));
 				function_declear.addProperty("name", tokens[i + 1].value);
 
-				// check return type
-				if (tokens[i + 2].value != "->") { // does not have return type
-					if (tokens[i + 2].value != "(") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected function declear syntax.\nfunc function_name(param a, param b, ... ) -> return_type {\n  ...\n}\n is the correct syntax for function declearation.", currentFileName, tokens[i + 2].line));
-						continue;
-					}
-					function_declear.addProperty("return_type", "");
-					i = i + 2;
+				if ((i + 2) > scope.end) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function parameter missing.", currentFileName, tokens[i + 1].line));
+					continue;
 				}
-				else { // has return type
-					if ((tokens[i + 3].type != TokenType::KEYWORD) && (tokens[i + 3].type != TokenType::IDENTIFIER)) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 3].line));
-						continue;
-					}
-					function_declear.addProperty("return_type", tokens[i + 3].value);
 
-					if (tokens[i + 4].value != "(") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected function declear syntax.\nfunc function_name(param a, param b, ... ) -> return_type {\n  ...\n}\n is the correct syntax for function declearation.", currentFileName, tokens[i + 4].line));
-						continue;
-					}
-					i = i + 4;
+				if (tokens[i + 2].value != "(") {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 2].line));
+					continue;
 				}
+				function_declear.addProperty("return_type", "");
+				i = i + 2;
 
 				// get function parameters
 				Constructor parameters = Constructor();
 				parameters.setName("parameters");
+
 				int k = 0;
+
+				if (tokens[i + 1].value == ")") {
+					function_declear.addProperty("isNone", "1");
+					goto get_parameter_finished;
+				}
+				else {
+					function_declear.addProperty("isNone", "0");
+				}
+
 				for (int j = i + 1; j < findBracketClose(tokens, i + 1, 1); j++) {
 					if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter type. Type expected.", currentFileName, tokens[j].line));
 						i = t_find_next(tokens, j, vector<string> {","});
 						continue;
 					}
+
+					if ((j + 1) >= findBracketClose(tokens, i + 1, 1)) {
+						break;
+					}
+
 					if (tokens[j + 1].type != TokenType::IDENTIFIER) {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter name. Type expected.", currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 1, vector<string> {","});
 						continue;
 					}
+
+					if ((j + 2) >= findBracketClose(tokens, i + 1, 1)) {
+						break;
+					}
+
 					if (tokens[j + 2].value != ",") {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 2, vector<string> {","});
 						continue;
 					}
+
 					string type = tokens[j].value;
 					string name = tokens[j + 1].value;
 					Constructor param = Constructor();
@@ -846,30 +970,166 @@ private:
 					k++;
 					j = j + 2;
 				}
+
+				get_parameter_finished:
 				function_declear.addProperty(parameters);
 
 				i = t_find_next(tokens, i + 1, vector<string> {")"});
 
-				if (tokens[i + 1].value != "{") {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[i + 1].line));
+				if ((i + 2) > scope.end) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i].line));
 					continue;
 				}
+
+				if (tokens[i + 1].value != "{") {
+					if (tokens[i + 1].value == "->") {
+						if ((i + 3) > scope.end) {
+							throwCompileMessage(CompileMessage(MessageType::ERROR, "Return type missing.", currentFileName, tokens[i + 2].line));
+							continue;
+						}
+
+						if ((tokens[i + 2].type != TokenType::KEYWORD) && (tokens[i + 2].type != TokenType::IDENTIFIER)) {
+							throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 3].line));
+							continue;
+						}
+						function_declear.addProperty("return_type", tokens[i + 3].value);
+						goto return_type_done;
+					}
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i].line));
+					continue;
+				}
+
+				function_declear.addProperty("return_type", "");
+
+				return_type_done:
 
 				Constructor function_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
 				function_declear.addProperty(function_body);
 
 				classFunctions.addProperty(function_declear);
+				function_declear_index++;
 			}
 		}
+
+		return classFunctions;
 	}
 
 	Constructor getFunctionBody(vector<Token> tokens, Scope scope) {
 		Constructor functionBody = Constructor();
 		functionBody.setName("body");
 		vector<vector<Token>> split = split_token(tokens, scope, ";");
+		int element_index = 0;
+		int variable_declear_index = 0;
 		for (int i = 0; i < split.size(); i++) {
+			if (split[i][0].value == ";") {
+				continue;
+			}
 
+			Constructor element = Constructor();
+			element.setName(string("element").append(to_string(element_index)));
+
+			if ((split[i][0].value == "const") && (split[i][1].value == "var")) { // declear constant variable
+				Constructor constant_variable_declear = Constructor();
+				constant_variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
+				constant_variable_declear.addProperty("isConst", "1");
+
+				if (split[i].size() < 3) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable type missing. Type expected.", currentFileName, tokens[i].line));
+					continue;
+				}
+
+				if ((split[i][2].value == "public") || (split[i][2].value == "private")) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected access modifier. Access modifier cannot be used inside function.", currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if ((split[i][2].type != TokenType::KEYWORD) && (split[i][2].type != TokenType::IDENTIFIER)) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
+					continue;
+				}
+				constant_variable_declear.addProperty("type", split[i][1].value);
+
+				if (split[i].size() < 5) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable name missing. Variable name expected.", currentFileName, split[i][2].line));
+					continue;
+				}
+
+				if (split[i][3].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(split[i][3].value).append("\'."), currentFileName, split[i][3].line));
+					continue;
+				}
+				constant_variable_declear.addProperty("name", split[i][2].value);
+
+				if (split[i][4].value == ";") {
+					constant_variable_declear.addProperty("init", "");
+				}
+				else if (split[i][4].value == "=") {
+					if ((split[i].size() < 7) || (split[i][5].value == ";")) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Expression expected.", currentFileName, split[i][5].line));
+						continue;
+					}
+
+					Constructor expression;
+				}
+				else {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, split[i][3].line));
+					continue;
+				}
+
+				variable_declear_index++;
+				functionBody.addProperty(element);
+				element_index++;
+				continue;
+			}
+
+			if (split[i][0].value == "var") { // declear variable
+				Constructor variable_declear = Constructor();
+				variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
+				variable_declear.addProperty("isConst", "0");
+
+				variable_declear_index++;
+				functionBody.addProperty(element);
+				element_index++;
+				continue;
+			}
+
+			tuple<Constructor, bool> expression = getExpression(split[i], 0, 0);
+			cout << get<bool>(expression) << endl;
+			if (!get<bool>(expression)) {
+				continue;
+			}
+
+			element.addProperty(get<Constructor>(expression));
+			functionBody.addProperty(element);
 		}
+
+		return functionBody;
+	}
+
+	tuple<Constructor, bool> getExpression(vector<Token> line, int start_index, int depth) {
+		return make_tuple(Constructor(), true);
+		Constructor expression = Constructor();
+		expression.setName("expression");
+		int sub_express_index = 0;
+		for (int i = start_index; i < ((depth == 0) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
+			if (line[i].type == TokenType::IDENTIFIER) {
+				if (line.size() <= (i + 1)) continue;
+
+				if (line[i + 1].value == "(") {
+					tuple<Constructor, bool> sub_expression = getExpression(line, i + 2, depth + 1);
+					if (get<bool>(sub_expression)) {
+						sub_express_index++;
+					}
+					if (findBracketClose(line, i + 1, 0) == -1) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Bracket missing.", currentFileName, line[i + 1].line));
+						return make_tuple(Constructor(), false);
+					}
+					i = findBracketClose(line, i + 1, 0);
+				}
+			}
+		}
+
+		return make_tuple(expression, true);
 	}
 
 	vector<vector<Token>> split_token(vector<Token> tokens, Scope scope, string delimiter) {
@@ -931,6 +1191,8 @@ private:
 				return i;
 			}
 		}
+
+		return -1;
 	}
 
 	int findNextSemicolon(vector<Token> tokens, int cursor) {
@@ -971,7 +1233,11 @@ private:
 			default:
 				return;
 		}
-		string str = colorString(string("[").append(type).append("] ").append(compileMessage.message), color);
+		string str = colorString(string("[").append(type).append("] ")
+			.append(compileMessage.message)
+			.append("(").append(compileMessage.file_name)
+			.append(":line ").append(to_string(compileMessage.line_index + 1))
+			.append(")"), color);
 		cout << str << endl;
 	}
 
@@ -992,8 +1258,10 @@ private:
 			cout << "preprocessed_code:" << endl << preprocessed_code << endl;
 			regex commentRegex("//.*");
 			code = regex_replace(preprocessed_code, commentRegex, "");
+			cout << "lasjdf" << endl;
 
-			vector<Token> tokens = lexer(code);
+			vector<Token> tokens = tokenizer(code);
+
 
 			// 토큰 출력
 			for (const auto& token : tokens) {
@@ -1020,12 +1288,9 @@ private:
 				cout << "Type: " << tokenTypeStr << ", Value: " << token.value << endl;
 			}
 #endif
-
-#ifdef PARSER
 			Constructor root = parser(tokens); // AST
 #ifdef _DEBUG
 			cout << "bytecode:" << endl << root.toString() << endl;
-#endif
 #endif
 		}
 		catch (const invalid_argument& e) {
