@@ -18,4 +18,5 @@ public:
     void addProperty(Constructor property);
     std::string getValue();
     std::string toString();
+    std::string toPrettyString(int depth = 0);
 };

@@ -24,6 +24,7 @@
     <ProjectGuid>{ea7dc574-f17f-4c8f-a75f-2918f9093bb3}</ProjectGuid>
     <RootNamespace>Bulb</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Slent</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

@@ -182,7 +182,7 @@ const int MAGENTA_LIGHT = 95;
 const int CYAN_LIGHT = 96;
 const int WHITE_LIGHT = 97;
 
-class BulbCompiler {
+class SlentCompiler {
 private:
 	string** getPreprocessorTokens(string code) {
 		vector<string> code_lines = split(code, '\n');
@@ -585,7 +585,7 @@ private:
 	vector<Token> tokenizer(string code) {
 		vector<Token> tokens;
 
-		regex tokenRegex(R"(->|\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
+		regex tokenRegex(R"(->|==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
 		// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 		smatch match;
 
@@ -605,7 +605,7 @@ private:
 				else if (regex_match(matched, regex("\"[^\"]*\""))) {
 					tokens.push_back(Token(TokenType::LITERAL, matched, i));
 				}
-				else if (regex_match(matched, regex(R"(\+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!)"))) {
+				else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 				}
 				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,)"))) {
@@ -822,8 +822,11 @@ private:
 				continue;
 			}
 
-			tuple<Constructor, bool> expression = getExpression(split[i], 0, 0);
-			cout << get<bool>(expression) << endl;
+			vector<Token> line = split[i];
+			if (line.back().value == ";") {
+				line.pop_back();
+			}
+			tuple<Constructor, bool> expression = getExpression(line, 0, 0, false);
 			if (!get<bool>(expression)) {
 				continue;
 			}
@@ -851,7 +854,7 @@ private:
 
 				// get variable access_modifier
 				if ((tokens[i + 1].value == "public") || (tokens[i + 1].value == "private")) {
-					// var [access_modifier] [type] [var_name
+					// var [access_modifier] [type] [var_name]
 					variable_declear.addProperty("access_modifier", tokens[i + 1].value);
 					i = i + 2;
 				}
@@ -865,12 +868,14 @@ private:
 					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
 					continue;
 				}
+				variable_declear.addProperty("type", tokens[i].value);
 
 				// get variable name
 				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(tokens[i + 1].value).append("\'."), currentFileName, tokens[i + 1].line));
 					continue;
 				}
+				variable_declear.addProperty("name", tokens[i + 1].value);
 
 				if (tokens[i + 2].value != ";") {
 					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, tokens[i + 1].line));
@@ -916,7 +921,6 @@ private:
 					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 2].line));
 					continue;
 				}
-				function_declear.addProperty("return_type", "");
 				i = i + 2;
 
 				// get function parameters
@@ -926,11 +930,8 @@ private:
 				int k = 0;
 
 				if (tokens[i + 1].value == ")") {
-					function_declear.addProperty("isNone", "1");
+					function_declear.addProperty("parameters", "");
 					goto get_parameter_finished;
-				}
-				else {
-					function_declear.addProperty("isNone", "0");
 				}
 
 				for (int j = i + 1; j < findBracketClose(tokens, i + 1, 1); j++) {
@@ -971,8 +972,8 @@ private:
 					j = j + 2;
 				}
 
-				get_parameter_finished:
 				function_declear.addProperty(parameters);
+				get_parameter_finished:
 
 				i = t_find_next(tokens, i + 1, vector<string> {")"});
 
@@ -1092,9 +1093,12 @@ private:
 				element_index++;
 				continue;
 			}
-
-			tuple<Constructor, bool> expression = getExpression(split[i], 0, 0);
-			cout << get<bool>(expression) << endl;
+			
+			vector<Token> line = split[i];
+			if (line.back().value == ";") {
+				line.pop_back();
+			}
+			tuple<Constructor, bool> expression = getExpression(line, 0, 0, false);
 			if (!get<bool>(expression)) {
 				continue;
 			}
@@ -1106,26 +1110,106 @@ private:
 		return functionBody;
 	}
 
-	tuple<Constructor, bool> getExpression(vector<Token> line, int start_index, int depth) {
+	tuple<Constructor, bool> getExpression(vector<Token> line, int start_index, int depth, bool ignore_range) {
 		return make_tuple(Constructor(), true);
 		Constructor expression = Constructor();
 		expression.setName("expression");
-		int sub_express_index = 0;
-		for (int i = start_index; i < ((depth == 0) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
+		int expression_index = 0;
+		for (int i = start_index; i < (((depth == 0) || ignore_range) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
 			if (line[i].type == TokenType::IDENTIFIER) {
-				if (line.size() <= (i + 1)) continue;
+				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
 
+				// function call
 				if (line[i + 1].value == "(") {
-					tuple<Constructor, bool> sub_expression = getExpression(line, i + 2, depth + 1);
-					if (get<bool>(sub_expression)) {
-						sub_express_index++;
+					Constructor function_call = Constructor();
+					tuple<Constructor, bool> sub_expression = getExpression(line, i + 2, depth + 1, false);
+					if (!get<bool>(sub_expression)) { // 하위 depth가 정상적으로 변환되지 못한 상태
+						i = findBracketClose(line, i + 1, 0);
+						continue;
 					}
 					if (findBracketClose(line, i + 1, 0) == -1) {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Bracket missing.", currentFileName, line[i + 1].line));
 						return make_tuple(Constructor(), false);
 					}
+					function_call.addProperty(get<Constructor>(sub_expression));
+					Constructor new_expression = Constructor();
+					new_expression.setName(string("expression").append(to_string(expression_index)));
+					expression.addProperty(new_expression);
+					expression_index++;
 					i = findBracketClose(line, i + 1, 0);
+					continue;
 				}
+
+				expression.addProperty(string("expression").append(to_string(expression_index)), line[i].value);
+				expression_index++;
+				continue;
+			}
+
+			if (line[i].value == "return") {
+				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
+
+				tuple<Constructor, bool> sub_expression = getExpression(line, i + 1, depth + 1, false);
+				if (!get<bool>(sub_expression)) {
+					return make_tuple(Constructor(), false);
+				}
+
+				continue;
+			}
+
+			if (line[i].value == ".") {
+				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
+
+				Constructor sub_expression = Constructor();
+				sub_expression.setName(string("expression").append(to_string(expression_index)));
+				expression_index++;
+				Constructor member_access = Constructor();
+				member_access.setName("member_access");
+				member_access.addProperty("access_dir", line[i + 1].value);
+				sub_expression.addProperty(member_access);
+				expression.addProperty(sub_expression);
+				expression_index++;
+				i = i + 1;
+				continue;
+			}
+			
+			const vector<string> assignment_operators = { "=", "+=", "-=", "*=", "/=", "%=" };
+			const vector<string> relational_operators = { "==", "!=", "<", ">", "<=", ">=" };
+
+			if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
+				if (depth != 0) {
+					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected operator use.", currentFileName, line[i].line));
+					continue;
+				}
+
+				Constructor operation = Constructor();
+				operation.setName("operation");
+				operation.addProperty("type", line[i].value);
+				Constructor left = Constructor();
+				left.setName("left");
+				Constructor right = Constructor();
+				right.setName("right");
+
+				for (int j = 0; j < expression.getProperties().size(); j++) {
+					left.addProperty(expression.getProperties()[j]);
+				}
+
+				tuple<Constructor, bool> right_expression = getExpression(line, i + 1, depth + 1, true);
+				if (!get<bool>(right_expression)) {
+					return make_tuple(Constructor(), false);
+				}
+				for (int j = 0; j < get<Constructor>(right_expression).getProperties().size(); j++) {
+					right.addProperty(get<Constructor>(right_expression).getProperties()[j]);
+				}
+
+				operation.addProperty(left);
+				operation.addProperty(right);
+				expression = Constructor();
+				expression.setName("expression");
+				expression.addProperty(operation);
+			}
+
+			if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
+
 			}
 		}
 
@@ -1258,7 +1342,6 @@ private:
 			cout << "preprocessed_code:" << endl << preprocessed_code << endl;
 			regex commentRegex("//.*");
 			code = regex_replace(preprocessed_code, commentRegex, "");
-			cout << "lasjdf" << endl;
 
 			vector<Token> tokens = tokenizer(code);
 
@@ -1290,7 +1373,7 @@ private:
 #endif
 			Constructor root = parser(tokens); // AST
 #ifdef _DEBUG
-			cout << "bytecode:" << endl << root.toString() << endl;
+			cout << "bytecode:" << endl << root.toPrettyString() << endl;
 #endif
 		}
 		catch (const invalid_argument& e) {
@@ -1312,7 +1395,20 @@ public:
 	}
 };
 
-class BulbVirtualMachine {
+class MemoryManager {
+private:
+
+public:
+	void allocate_memory(int virtual_adress) {
+
+	}
+
+	void write_momory(int virtual_adress) {
+
+	}
+};
+
+class SlentVirtualMachine {
 private:
 
 public:
@@ -1338,8 +1434,8 @@ int main() {
 	string exampleCode = "#if LEL\n#endif\n#define TEST\n\n#if TEST\nimport Test.UnitTest.ITestable;\n#else\n#error \"test is required\"\n#endif\nimport System;\n\nclass Foo {\n    var public int moo;\n    var public int foo;\n    \n    construct(int _moo, int _foo, int _boo) {\n        moo = _moo;\n        foo = _foo;\n        var boo = _boo + 1;\n        foo += boo;\n    }\n    \n    func ConvertTo16() -> string {\n        return Boo + 1;\n    }\n}\n\nclass Main {\n    \n    @Entry\n    func main() {\n        Foo foo = new Foo(10, 7, 1);\n        foo.ConvertTo16();\n        \n        string str = \"+\";\n        \n        if (true) {\n            \n        }\n    }\n}";
 	//string exampleCode = "#if LEL\n#endif\n#define TEST\n\n#if L_TEST\nimport Test.UnitTest.ITestable;\n#else\n#error \"test is required\"\n#endif\nimport System;\n\nclass Foo {\n\tvar public int moo;\n\tvar public int foo;\n\t\n\tconstruct(int _moo, int _foo, int _boo) {\n\t\tmoo = _moo;\n\t\tfoo = _foo;\n\t\tvar boo = _boo + 1;\n\t\tfoo += boo;\n\t}\n\t\n\tfunc ConvertTo16() -> string {\n\t\treturn Boo + 1;\n\t}\n}\n\nclass Main {\n\t\n\t@Entry\n\tfunc main() {\n\t\tFoo foo = new Foo(10, 7, 1);\n\t\tfoo.ConvertTo16();\n\t\t\n\t\tstring str = \"+\";\n\t\t\n\t\tif (true) {\n\t\t\t\n\t\t}\n\t}\n}";
 	
-	BulbCompiler* compiler = new BulbCompiler;
-	compiler->AddFile("main.bulb", exampleCode);
+	SlentCompiler* compiler = new SlentCompiler;
+	compiler->AddFile("main.sl", exampleCode);
 	compiler->Compile();
 
 	delete compiler;
