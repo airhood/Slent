@@ -29,8 +29,5 @@
     <ClInclude Include="Constructor.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="Execution.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

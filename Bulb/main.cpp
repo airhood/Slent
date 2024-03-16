@@ -6,9 +6,9 @@
 #include <stdexcept>
 #include <tuple>
 #include "Constructor.h"
-#include "Execution.h"
 #include <sstream>
 #include <format>
+#include <any>
 
 using namespace std;
 
@@ -130,14 +130,20 @@ struct CompileMessage {
 };
 
 struct RuntimeError {
-	string location;
-	string name;
+	MessageType type;
 	string message;
+	string file_name;
+	int line_index;
 
-	RuntimeError(string location, string name, string message) {
-		this->location = location;
-		this->name = name;
+	RuntimeError() {
+
+	}
+
+	RuntimeError(MessageType type, string message, string file_name, int line_index) {
+		this->type = type;
 		this->message = message;
+		this->file_name = file_name;
+		this->line_index = line_index;
 	}
 };
 
@@ -1395,15 +1401,68 @@ public:
 	}
 };
 
+struct MemoryRequestResult {
+	bool success;
+	RuntimeError error;
+
+	MemoryRequestResult(bool success) {
+		this->success = success;
+	}
+};
+
 class MemoryManager {
 private:
-
+	int stack_size;
+	int current_stack_size;
+	void** stack_memory;
+	void* heap_memory;
 public:
-	void allocate_memory(int virtual_adress) {
+	MemoryManager() {
+		stack_size = 0;
+		current_stack_size = 0;
+	}
+
+	void set_stack_size(int size) {
+		this->stack_size = size;
+	}
+
+	void start() {
+		stack_memory = nullptr;
+	}
+
+	template <typename T>
+	bool push_stack(T value) {
+		T* ptr = (T*)malloc(sizeof(T));
+		*ptr = value;
+		if (sizeof(stack_memory) + sizeof(ptr) > stack_size) {
+			return false;
+		}
+		if (stack_memory == nullptr) {
+			stack_memory = (void**)malloc(sizeof(void*));
+		}
+		else {
+			realloc(stack_memory, sizeof(stack_memory) + sizeof(void*));
+		}
+		stack_memory[0] = (void*)ptr;
+		current_stack_size++;
+		return true;
+	}
+
+	bool pop_stack() {
+		realloc(stack_memory, sizeof(stack_memory) - sizeof(stack_memory[current_stack_size - 1]));
+		current_stack_size--;
+	}
+
+	template <typename T>
+	T read_stack(int i) {
+		return *((T*)stack_memory[current_stack_size - 1 - i]);
+	}
+
+	bool allocate_heap_memory(int size) {
 
 	}
 
-	void write_momory(int virtual_adress) {
+	bool write_heap_momory(int virtual_address) {
 
 	}
 };
@@ -1418,6 +1477,16 @@ public:
 };
 
 int main() {
+
+	MemoryManager memory_manager = MemoryManager();
+	memory_manager.set_stack_size(100);
+	memory_manager.start();
+	bool result = memory_manager.push_stack<int>(1);
+	if (result) {
+		cout << memory_manager.read_stack<int>(0) << endl;
+	}
+	return 0;
+
 	//    string preprocessor = R"(#if LEL
 	//#endif
 	//#define TEST
