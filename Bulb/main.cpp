@@ -1413,57 +1413,58 @@ struct MemoryRequestResult {
 class MemoryManager {
 private:
 	int stack_size;
-	int current_stack_size;
+	int heap_size;
+	int current_stack_index;
 	void** stack_memory;
-	void* heap_memory;
+	void** heap_memory;
+
+	int find_free_address(int size) {
+		for (int i = 0; i < heap_size; i++) {
+			if (heap_memory[i] == nullptr) return i;
+		}
+	}
+
 public:
 	MemoryManager() {
 		stack_size = 0;
-		current_stack_size = 0;
+		heap_size = 0;
+		current_stack_index = 0;
 	}
 
 	void set_stack_size(int size) {
 		this->stack_size = size;
 	}
 
+	void set_heap_size(int size) {
+		this->heap_size = size;
+	}
+
 	void start() {
-		stack_memory = nullptr;
+		heap_memory = (void**)malloc(sizeof(void*) * heap_size);
 	}
 
 	template <typename T>
-	bool push_stack(T value) {
+	void allocate_heap() {
 		T* ptr = (T*)malloc(sizeof(T));
-		*ptr = value;
-		if (sizeof(stack_memory) + sizeof(ptr) > stack_size) {
-			return false;
-		}
-		if (stack_memory == nullptr) {
-			stack_memory = (void**)malloc(sizeof(void*));
-		}
-		else {
-			realloc(stack_memory, sizeof(stack_memory) + sizeof(void*));
-		}
-		stack_memory[0] = (void*)ptr;
-		current_stack_size++;
+
+		heap_memory[find_free_address()] = (void*)ptr;
 		return true;
 	}
 
-	bool pop_stack() {
-		realloc(stack_memory, sizeof(stack_memory) - sizeof(stack_memory[current_stack_size - 1]));
-		current_stack_size--;
+	template <typename T>
+	void write_heap(int address, T value) {
+		if (heap_memory[address] == nullptr) return;
+		*((T*)heap_memory[address]) = value;
+	}
+
+	void free_heap(int address) {
+		free(heap_memory[address]);
+		heap_memory[address] = nullptr;
 	}
 
 	template <typename T>
-	T read_stack(int i) {
-		return *((T*)stack_memory[current_stack_size - 1 - i]);
-	}
-
-	bool allocate_heap_memory(int size) {
-
-	}
-
-	bool write_heap_momory(int virtual_address) {
-
+	T read_heap(int address) {
+		return *((T*)stack_memory[address]);
 	}
 };
 
@@ -1477,16 +1478,6 @@ public:
 };
 
 int main() {
-
-	MemoryManager memory_manager = MemoryManager();
-	memory_manager.set_stack_size(100);
-	memory_manager.start();
-	bool result = memory_manager.push_stack<int>(1);
-	if (result) {
-		cout << memory_manager.read_stack<int>(0) << endl;
-	}
-	return 0;
-
 	//    string preprocessor = R"(#if LEL
 	//#endif
 	//#define TEST
