@@ -1,10 +1,10 @@
 #include <iostream>
 #include <string>
-#include "Slent.cpp"
+#include "Slent.h"
 
 using namespace std;
 
-int main() {
+int main(int argc, char *argv[]) {
 	//    string preprocessor = R"(#if LEL
 	//#endif
 	//#define TEST
