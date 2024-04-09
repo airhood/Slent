@@ -31,15 +31,19 @@ using namespace std;
 
 namespace Slent {
 
+	string colorString(string str, int color) {
+		return string("\033[0;").append(to_string(color)).append("m").append(str).append("\033[0m");
+	}
+
 	vector<string> split(string str, char Delimiter) {
-		istringstream iss(str);             // istringstream¿¡ strÀ» ´ã´Â´Ù.
-		string buffer;                      // ±¸ºÐÀÚ¸¦ ±âÁØÀ¸·Î Àý»èµÈ ¹®ÀÚ¿­ÀÌ ´ã°ÜÁö´Â ¹öÆÛ
+		istringstream iss(str);             // istringstreamï¿½ï¿½ strï¿½ï¿½ ï¿½ï¿½Â´ï¿½.
+		string buffer;                      // ï¿½ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 		vector<string> result;
 
-		// istringstreamÀº istreamÀ» »ó¼Ó¹ÞÀ¸¹Ç·Î getlineÀ» »ç¿ëÇÒ ¼ö ÀÖ´Ù.
+		// istringstreamï¿½ï¿½ istreamï¿½ï¿½ ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ getlineï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö´ï¿½.
 		while (getline(iss, buffer, Delimiter)) {
-			result.push_back(buffer);               // Àý»èµÈ ¹®ÀÚ¿­À» vector¿¡ ÀúÀå
+			result.push_back(buffer);               // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½ï¿½ vectorï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		}
 		return result;
 	}
@@ -445,7 +449,7 @@ namespace Slent {
 	vector<Token> SlentCompiler::tokenizer(string code) {
 		vector<Token> tokens;
 
-		regex tokenRegex(R"(->|==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
+		regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
 		// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 		smatch match;
 
@@ -983,7 +987,7 @@ namespace Slent {
 				if (line[i + 1].value == "(") {
 					Constructor function_call = Constructor();
 					tuple<Constructor, bool> sub_expression = getExpression(line, i + 2, depth + 1, false);
-					if (!get<bool>(sub_expression)) { // ÇÏÀ§ depth°¡ Á¤»óÀûÀ¸·Î º¯È¯µÇÁö ¸øÇÑ »óÅÂ
+					if (!get<bool>(sub_expression)) { // ï¿½ï¿½ï¿½ï¿½ depthï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 						i = findBracketClose(line, i + 1, 0);
 						continue;
 					}
@@ -1087,10 +1091,6 @@ namespace Slent {
 			}
 		}
 		return split;
-	}
-
-	string SlentCompiler::colorString(string str, int color) {
-		return string("\033[0;").append(to_string(color)).append("m").append(str).append("\033[0m");
 	}
 
 	// check if the type is available to use for variable type or function return type
@@ -1206,7 +1206,7 @@ namespace Slent {
 			vector<Token> tokens = tokenizer(code);
 
 
-			// ÅäÅ« Ãâ·Â
+			// ï¿½ï¿½Å« ï¿½ï¿½ï¿½
 			for (const auto& token : tokens) {
 				string tokenTypeStr;
 				switch (token.type) {

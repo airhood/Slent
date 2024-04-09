@@ -4,6 +4,10 @@
 
 namespace Slent {
 
+    const std::string VERSION = "0.0.1";
+
+    std::string colorString(std::string str, int color);
+    
     enum class TokenType {
         KEYWORD,
         IDENTIFIER,
@@ -157,7 +161,6 @@ namespace Slent {
         Constructor getFunctionBody(std::vector<Token> tokens, Scope scope);
         std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth, bool ignore_range);
         std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
-        std::string colorString(std::string str, int color);
         bool check_type(std::string type);
         int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);
         int findBracketClose(std::vector<Token> tokens, int cursor, int current_bracket);
