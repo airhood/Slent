@@ -36,14 +36,13 @@ namespace Slent {
 	}
 
 	vector<string> split(string str, char Delimiter) {
-		istringstream iss(str);             // istringstream�� str�� ��´�.
-		string buffer;                      // �����ڸ� �������� ����� ���ڿ��� ������� ����
+		istringstream iss(str);
+		string buffer;
 
 		vector<string> result;
 
-		// istringstream�� istream�� ��ӹ����Ƿ� getline�� ����� �� �ִ�.
 		while (getline(iss, buffer, Delimiter)) {
-			result.push_back(buffer);               // ����� ���ڿ��� vector�� ����
+			result.push_back(buffer);
 		}
 		return result;
 	}
@@ -469,13 +468,14 @@ namespace Slent {
 				else if (regex_match(matched, regex("\"[^\"]*\""))) {
 					tokens.push_back(Token(TokenType::LITERAL, matched, i));
 				}
-				else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
+				else if (regex_match(matched, regex(R"(==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 				}
 				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,)"))) {
 					tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 				}
 				else {
+					cout << matched;
 					throw invalid_argument("Invalid Syntax");
 				}
 				code_split[i] = match.suffix().str();
@@ -857,18 +857,24 @@ namespace Slent {
 							throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 3].line));
 							continue;
 						}
-						function_declear.addProperty("return_type", tokens[i + 3].value);
+						function_declear.addProperty("return_type", tokens[i + 2].value);
+						if (tokens[i + 3].value != "{") {
+							throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i + 3].line));
+						}
+						i = i + 3;
 						goto return_type_done;
 					}
 					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i].line));
 					continue;
 				}
+				// tokens[i + 1].value == "{" => true
+				i = i + 1;
 
 				function_declear.addProperty("return_type", "");
 
 			return_type_done:
 
-				Constructor function_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
+				Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
 				function_declear.addProperty(function_body);
 
 				classFunctions.addProperty(function_declear);
@@ -975,7 +981,7 @@ namespace Slent {
 	}
 
 	tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int start_index, int depth, bool ignore_range) {
-		return make_tuple(Constructor(), true);
+		//return make_tuple(Constructor(), true);
 		Constructor expression = Constructor();
 		expression.setName("expression");
 		int expression_index = 0;
@@ -987,7 +993,7 @@ namespace Slent {
 				if (line[i + 1].value == "(") {
 					Constructor function_call = Constructor();
 					tuple<Constructor, bool> sub_expression = getExpression(line, i + 2, depth + 1, false);
-					if (!get<bool>(sub_expression)) { // ���� depth�� ���������� ��ȯ���� ���� ����
+					if (!get<bool>(sub_expression)) { // conversion of lower depth failed
 						i = findBracketClose(line, i + 1, 0);
 						continue;
 					}
@@ -1012,11 +1018,10 @@ namespace Slent {
 			if (line[i].value == "return") {
 				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
 
-				tuple<Constructor, bool> sub_expression = getExpression(line, i + 1, depth + 1, false);
+				tuple<Constructor, bool> sub_expression = getExpression(line, i + 1, depth, false);
 				if (!get<bool>(sub_expression)) {
 					return make_tuple(Constructor(), false);
 				}
-
 				continue;
 			}
 
@@ -1206,7 +1211,7 @@ namespace Slent {
 			vector<Token> tokens = tokenizer(code);
 
 
-			// ��ū ���
+			// print tokens
 			for (const auto& token : tokens) {
 				string tokenTypeStr;
 				switch (token.type) {
