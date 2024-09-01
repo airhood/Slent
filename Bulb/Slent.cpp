@@ -596,7 +596,7 @@ namespace Slent {
 				i = t_find_next(tokens, i + 2, vector<string> {")"});
 
 				if (tokens[i + 1].value != "{") {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0021, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
