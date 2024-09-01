@@ -845,29 +845,29 @@ namespace Slent {
 				i = t_find_next(tokens, i + 1, vector<string> {")"});
 
 				if ((i + 2) > scope.end) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0021, currentFileName, tokens[i].line));
 					continue;
 				}
 
 				if (tokens[i + 1].value != "{") {
 					if (tokens[i + 1].value == "->") {
 						if ((i + 3) > scope.end) {
-							throwCompileMessage(CompileMessage(MessageType::ERROR, "Return type missing.", currentFileName, tokens[i + 2].line));
+							throwCompileMessage(CompileMessage(SL0020, currentFileName, tokens[i + 2].line));
 							continue;
 						}
 
 						if ((tokens[i + 2].type != TokenType::KEYWORD) && (tokens[i + 2].type != TokenType::IDENTIFIER)) {
-							throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 3].line));
+							throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i + 3].line));
 							continue;
 						}
 						function_declear.addProperty("return_type", tokens[i + 2].value);
 						if (tokens[i + 3].value != "{") {
-							throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i + 3].line));
+							throwCompileMessage(CompileMessage(SL0021, currentFileName, tokens[i + 3].line));
 						}
 						i = i + 3;
 						goto return_type_done;
 					}
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function body missing.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0021, currentFileName, tokens[i].line));
 					continue;
 				}
 				// tokens[i + 1].value == "{" => true
@@ -908,28 +908,28 @@ namespace Slent {
 				constant_variable_declear.addProperty("isConst", "1");
 
 				if (split[i].size() < 3) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable type missing. Type expected.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
 					continue;
 				}
 
 				if ((split[i][2].value == "public") || (split[i][2].value == "private")) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected access modifier. Access modifier cannot be used inside function.", currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
 				if ((split[i][2].type != TokenType::KEYWORD) && (split[i][2].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
 					continue;
 				}
 				constant_variable_declear.addProperty("type", split[i][1].value);
 
 				if (split[i].size() < 5) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable name missing. Variable name expected.", currentFileName, split[i][2].line));
+					throwCompileMessage(CompileMessage(SL0015, currentFileName, split[i][2].line));
 					continue;
 				}
 
 				if (split[i][3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(split[i][3].value).append("\'."), currentFileName, split[i][3].line));
+					throwCompileMessage(CompileMessage(SL0012, currentFileName, split[i][3].line));
 					continue;
 				}
 				constant_variable_declear.addProperty("name", split[i][2].value);
@@ -939,14 +939,14 @@ namespace Slent {
 				}
 				else if (split[i][4].value == "=") {
 					if ((split[i].size() < 7) || (split[i][5].value == ";")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Expression expected.", currentFileName, split[i][5].line));
+						throwCompileMessage(CompileMessage(SL0016, currentFileName, split[i][5].line));
 						continue;
 					}
 
 					Constructor expression;
 				}
 				else {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, split[i][3].line));
+					throwCompileMessage(CompileMessage(SL0017, currentFileName, split[i][3].line));
 					continue;
 				}
 
@@ -1006,7 +1006,7 @@ namespace Slent {
 						continue;
 					}
 					if (findBracketClose(line, i + 1, 0) == -1) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Bracket missing.", currentFileName, line[i + 1].line));
+						throwCompileMessage(CompileMessage(SL0022, currentFileName, line[i + 1].line));
 						return make_tuple(Constructor(), false);
 					}
 					Constructor parameter_constructor = get<Constructor>(get_parameter);
@@ -1046,17 +1046,17 @@ namespace Slent {
 								reference.addProperty(member_access);
 							}
 							else {
-								throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon required", currentFileName, i + 1));
+								throwCompileMessage(CompileMessage(SL0017, currentFileName, i + 1));
 								return make_tuple(Constructor(), false);
 							}
 						}
 						else {
-							throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon required", currentFileName, i + 1));
+							throwCompileMessage(CompileMessage(SL0017, currentFileName, i + 1));
 							return make_tuple(Constructor(), false);
 						}
 					}
 					else {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon required", currentFileName, i));
+						throwCompileMessage(CompileMessage(SL0017, currentFileName, i));
 						return make_tuple(Constructor(), false);
 					}
 
@@ -1070,7 +1070,7 @@ namespace Slent {
 
 				if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
 					if (depth != 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected operator use.", currentFileName, line[i].line));
+						throwCompileMessage(CompileMessage(SL0023, currentFileName, line[i].line));
 						continue;
 					}
 

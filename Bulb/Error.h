@@ -34,6 +34,10 @@
 #define SL0018 MessageType::ERROR, "Function name missing."
 #define SL0019 MessageType::ERROR, "Function naming rule not followed."
 #define SL0020 MessageType::ERROR, "Return type expected"
+#define SL0021 MessageType::ERROR, "Missing function body"
+#define SL0022 MessageType::ERROR, "Missing bracket."
+#define SL0023 MessageType::ERROR, "Unexpected operator use."
+
 
 
 #elif COMPILE_MESSAGE_LANG == KOREAN
