@@ -150,7 +150,7 @@ namespace Slent {
         std::string preprocess(std::string code);
         int p_find_next(std::string** preprocessor_tokens, int lines, int cursor, std::vector<std::string> target);
         int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
-        std::vector<Token> tokenizer(std::string code);
+        std::vector<Token> lexer(std::string code);
         Constructor parser(std::vector<Token> tokens);
         std::tuple<Constructor, int, bool> getClass(std::vector<Token> tokens, int cursor);
         Constructor getClassMembers(std::vector<Token> tokens, Scope scope);
@@ -165,7 +165,6 @@ namespace Slent {
         int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);
         int findBracketClose(std::vector<Token> tokens, int cursor, int current_bracket);
         int findNextSemicolon(std::vector<Token> tokens, int cursor);
-        bool classExist(std::vector<Token> tokens, std::string className);
         void throwCompileMessage(CompileMessage compileMessage);
         std::string bytecode(Constructor root);
         void optimize();

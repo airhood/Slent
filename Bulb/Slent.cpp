@@ -5,8 +5,11 @@
 #include <tuple>
 #include "Constructor.h"
 #include <sstream>
+#include <functional>
 
 #include "Slent.h"
+
+#include "Error.h"
 
 using namespace std;
 
@@ -46,7 +49,7 @@ namespace Slent {
 		}
 		return result;
 	}
-
+	
 	string** SlentCompiler::getPreprocessorTokens(string code) {
 		vector<string> code_lines = split(code, '\n');
 
@@ -69,7 +72,7 @@ namespace Slent {
 			isFirstToken = true;
 			for (int i = 0; i < code_lines[h].size(); i++) {
 				if (k > 3) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, h + 1));
+					throwCompileMessage(CompileMessage(SL0001, currentFileName, h + 1));
 					break;
 				}
 				if (isFirstToken) {
@@ -129,7 +132,7 @@ namespace Slent {
 			}
 			k = 0;
 			if (isLiteralOpen) {
-				throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor literal. Quotation mark should be closed.", currentFileName, h + 1));
+				throwCompileMessage(CompileMessage(SL0002, currentFileName, h + 1));
 				isLiteralOpen = false;
 			}
 		}
@@ -162,16 +165,16 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#define") {
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
@@ -181,16 +184,16 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#undef") {
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
@@ -206,16 +209,16 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#if") {
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
@@ -233,21 +236,21 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#elif") {
 					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "#elif can be used after #if", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
@@ -270,17 +273,17 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#else") {
 					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "#else can be used after #if", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][1] != "") || (preprocessor_tokens[i][2] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
@@ -297,17 +300,17 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#endif") {
 					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "#endif can be used after #if", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][1] != "") || (preprocessor_tokens[i][2] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
 					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
@@ -318,17 +321,17 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#message") {
 					if (code_line_splits[1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
-					if ((preprocessor_tokens[i][1].front() != '\"') || (preprocessor_tokens[i][1].back() != '\"')) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter. Literal required.", currentFileName, i + 1));
+					if ((preprocessor_tokens[i][1].front() != '>') || (preprocessor_tokens[i][1].back() != '<')) {
+						throwCompileMessage(CompileMessage(SL0005, currentFileName, i + 1));
 						continue;
 					}
 
@@ -344,17 +347,17 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#warning") {
 					if (code_line_splits[1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
-					if ((preprocessor_tokens[i][1].front() != '\"') || (preprocessor_tokens[i][1].back() != '\"')) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter. Literal required.", currentFileName, i + 1));
+					if ((preprocessor_tokens[i][1].front() != '>') || (preprocessor_tokens[i][1].back() != '<')) {
+						throwCompileMessage(CompileMessage(SL0005, currentFileName, i + 1));
 						continue;
 					}
 
@@ -370,17 +373,17 @@ namespace Slent {
 
 				if (code_line_splits[0] == "#error") {
 					if (code_line_splits[1] == "") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Preprocessor parameter missing", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
 						continue;
 					}
 
 					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter", currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
 						continue;
 					}
 
-					if ((preprocessor_tokens[i][1].front() != '\"') || (preprocessor_tokens[i][1].back() != '\"')) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected preprocessor parameter. Literal required.", currentFileName, i + 1));
+					if ((preprocessor_tokens[i][1].front() != '>') || (preprocessor_tokens[i][1].back() != '<')) {
+						throwCompileMessage(CompileMessage(SL0005, currentFileName, i + 1));
 						continue;
 					}
 
@@ -411,7 +414,7 @@ namespace Slent {
 					continue;
 				}
 
-				throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unsupported preprocessor command. ").append(code_line_splits[0]).append(" command doesn't exist"), currentFileName, i + 1));
+				throwCompileMessage(CompileMessage(SL0006(code_line_splits[0]), currentFileName, i + 1));
 				continue;
 			}
 
@@ -445,7 +448,7 @@ namespace Slent {
 		return -1;
 	}
 
-	vector<Token> SlentCompiler::tokenizer(string code) {
+	vector<Token> SlentCompiler::lexer(string code) {
 		vector<Token> tokens;
 
 		regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
@@ -475,8 +478,7 @@ namespace Slent {
 					tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 				}
 				else {
-					cout << matched;
-					throw invalid_argument("Invalid Syntax");
+					throwCompileMessage(CompileMessage(SL0007(matched), currentFileName, i));
 				}
 				code_split[i] = match.suffix().str();
 			}
@@ -514,15 +516,16 @@ namespace Slent {
 		Constructor class_define = Constructor();
 		class_define.setName("class");
 		if (tokens[cursor + 1].type != TokenType::IDENTIFIER) {
-			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class name. Class name should not be Keywords, Operators, Special_Characters. Try using other name.", currentFileName, tokens[cursor + 1].line + 1));
+			throwCompileMessage(CompileMessage(SL0008, currentFileName, tokens[cursor + 1].line + 1));
 			return make_tuple(class_define, cursor, false);
 		}
 		class_define.addProperty("name", tokens[cursor + 1].value);
 		if (tokens[cursor + 2].value != "{") {
-			throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected class declear syntax. Class body missing. Class class_name {\n  ...\n}\n is the correct syntax for class declearation.", currentFileName, tokens[cursor + 1].line + 1));
+			throwCompileMessage(CompileMessage(SL0009, currentFileName, tokens[cursor + 1].line + 1));
 			return make_tuple(class_define, cursor + 1, false);
 		}
-		class_define = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
+		Constructor members = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
+		class_define.addProperty(members);
 
 		return make_tuple(class_define, findBraceClose(tokens, cursor + 3, 1), true);
 	}
@@ -549,7 +552,7 @@ namespace Slent {
 				constructor_declear.setName("constructor");
 
 				if (tokens[i + 1].value != "(") {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected constructor declear syntax.\nconstruct(param a, param b, ... ) {\n  ...\n}\n is the correct syntax for function declearation.", currentFileName, tokens[i + 4].line));
+					throwCompileMessage(CompileMessage(SL0010, currentFileName, tokens[i + 4].line));
 					continue;
 				}
 
@@ -558,7 +561,7 @@ namespace Slent {
 				int k = 0;
 				for (int j = i + 2; j < findBracketClose(tokens, i + 2, 1); j++) {
 					if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter type. Type expected.", currentFileName, tokens[j].line));
+						throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[j].line));
 						i = t_find_next(tokens, j, vector<string> {","});
 						continue;
 					}
@@ -566,7 +569,7 @@ namespace Slent {
 						if ((j + 1) >= findBracketClose(tokens, i + 2, 1)) {
 							break;
 						}
-						throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected parameter name.Check variable naming rules. Use other name istead of \'").append(tokens[j + 1].value).append("\'."), currentFileName, tokens[j + 1].line));
+						throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 1, vector<string> {","});
 						continue;
 					}
@@ -574,7 +577,7 @@ namespace Slent {
 						if ((j + 2) >= findBracketClose(tokens, i + 2, 1)) {
 							break;
 						}
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[j + 1].line));
+						throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 2, vector<string> {","});
 						continue;
 					}
@@ -593,7 +596,7 @@ namespace Slent {
 				i = t_find_next(tokens, i + 2, vector<string> {")"});
 
 				if (tokens[i + 1].value != "{") {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected constructor syntax. Parameter should only have its type and name.", currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
@@ -627,28 +630,28 @@ namespace Slent {
 				constant_variable_declear.addProperty("isConst", "1");
 
 				if (split[i].size() < 3) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable type missing. Type expected.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
 					continue;
 				}
 
 				if ((split[i][2].value == "public") || (split[i][2].value == "private")) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected access modifier. Access modifier cannot be used inside function.", currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
 				if ((split[i][2].type != TokenType::KEYWORD) && (split[i][2].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
 					continue;
 				}
 				constant_variable_declear.addProperty("type", split[i][1].value);
 
 				if (split[i].size() < 5) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Variable name missing. Variable name expected.", currentFileName, split[i][2].line));
+					throwCompileMessage(CompileMessage(SL0015, currentFileName, split[i][2].line));
 					continue;
 				}
 
 				if (split[i][3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(split[i][3].value).append("\'."), currentFileName, split[i][3].line));
+					throwCompileMessage(CompileMessage(SL0012, currentFileName, split[i][3].line));
 					continue;
 				}
 				constant_variable_declear.addProperty("name", split[i][2].value);
@@ -658,14 +661,14 @@ namespace Slent {
 				}
 				else if (split[i][4].value == "=") {
 					if ((split[i].size() < 7) || (split[i][5].value == ";")) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Expression expected.", currentFileName, split[i][5].line));
+						throwCompileMessage(CompileMessage(SL0016, currentFileName, split[i][5].line));
 						continue;
 					}
 
 					Constructor expression;
 				}
 				else {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, split[i][3].line));
+					throwCompileMessage(CompileMessage(SL0017, currentFileName, split[i][3].line));
 					continue;
 				}
 
@@ -729,20 +732,20 @@ namespace Slent {
 
 				// get variable type
 				if ((tokens[i].type != TokenType::KEYWORD) && (tokens[i].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected type. Type expected.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
 					continue;
 				}
 				variable_declear.addProperty("type", tokens[i].value);
 
 				// get variable name
 				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected variable name. Check variable naming rules. Use other name istead of \'").append(tokens[i + 1].value).append("\'."), currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 				variable_declear.addProperty("name", tokens[i + 1].value);
 
 				if (tokens[i + 2].value != ";") {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon expected.", currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0017, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
@@ -763,12 +766,12 @@ namespace Slent {
 		for (int i = scope.start; i <= scope.end; i++) {
 			if (tokens[i].value == "func") {
 				if ((i + 1) > scope.end) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function name missing.", currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[i].line));
 					continue;
 				}
 
 				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, string("Unexpected function name. Check the function naming rules. Use other name instead of \'").append(tokens[i + 1].value).append("\'."), currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0019, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
@@ -777,12 +780,12 @@ namespace Slent {
 				function_declear.addProperty("name", tokens[i + 1].value);
 
 				if ((i + 2) > scope.end) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Function parameter missing.", currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0010, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
 				if (tokens[i + 2].value != "(") {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected return type. Type expected.", currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0020, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 				i = i + 2;
@@ -800,7 +803,7 @@ namespace Slent {
 
 				for (int j = i + 1; j < findBracketClose(tokens, i + 1, 1); j++) {
 					if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter type. Type expected.", currentFileName, tokens[j].line));
+						throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[j].line));
 						i = t_find_next(tokens, j, vector<string> {","});
 						continue;
 					}
@@ -810,7 +813,7 @@ namespace Slent {
 					}
 
 					if (tokens[j + 1].type != TokenType::IDENTIFIER) {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter name. Type expected.", currentFileName, tokens[j + 1].line));
+						throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 1, vector<string> {","});
 						continue;
 					}
@@ -820,7 +823,7 @@ namespace Slent {
 					}
 
 					if (tokens[j + 2].value != ",") {
-						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected parameter syntax. Parameter should only have its type and name.", currentFileName, tokens[j + 1].line));
+						throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[j + 1].line));
 						i = t_find_next(tokens, j + 2, vector<string> {","});
 						continue;
 					}
@@ -975,25 +978,30 @@ namespace Slent {
 
 			element.addProperty(get<Constructor>(expression));
 			functionBody.addProperty(element);
+			element_index++;
+			continue;
 		}
 
 		return functionBody;
 	}
-
+	
 	tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int start_index, int depth, bool ignore_range) {
 		//return make_tuple(Constructor(), true);
 		Constructor expression = Constructor();
 		expression.setName("expression");
 		int expression_index = 0;
+
 		for (int i = start_index; i < (((depth == 0) || ignore_range) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
 			if (line[i].type == TokenType::IDENTIFIER) {
 				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
-
+				
 				// function call
 				if (line[i + 1].value == "(") {
 					Constructor function_call = Constructor();
-					tuple<Constructor, bool> sub_expression = getExpression(line, i + 2, depth + 1, false);
-					if (!get<bool>(sub_expression)) { // conversion of lower depth failed
+					function_call.setName("function_call");
+					function_call.addProperty("func_name", line[i].value);
+					tuple<Constructor, bool> get_parameter = getExpression(line, i + 2, depth + 1, false);
+					if (!get<bool>(get_parameter)) { // conversion of lower depth failed
 						i = findBracketClose(line, i + 1, 0);
 						continue;
 					}
@@ -1001,20 +1009,104 @@ namespace Slent {
 						throwCompileMessage(CompileMessage(MessageType::ERROR, "Bracket missing.", currentFileName, line[i + 1].line));
 						return make_tuple(Constructor(), false);
 					}
-					function_call.addProperty(get<Constructor>(sub_expression));
+					Constructor parameter_constructor = get<Constructor>(get_parameter);
+					parameter_constructor.setName("parameters");
+					function_call.addProperty(parameter_constructor);
 					Constructor new_expression = Constructor();
 					new_expression.setName(string("expression").append(to_string(expression_index)));
+					new_expression.addProperty(function_call);
 					expression.addProperty(new_expression);
 					expression_index++;
 					i = findBracketClose(line, i + 1, 0);
 					continue;
 				}
 
-				expression.addProperty(string("expression").append(to_string(expression_index)), line[i].value);
-				expression_index++;
+				function<tuple<Constructor, bool>(bool)> getReference;
+				getReference = [line, &i, this, &getReference] (bool origin) -> tuple<Constructor, bool> {
+					if (line[i].type != TokenType::IDENTIFIER) return make_tuple(Constructor(), false);
+
+					Constructor reference = Constructor();
+
+					if (origin) {
+						reference.setName("reference");
+						return;
+					}
+
+					reference.setName(line[i].value);
+
+					if (tokens_check_index(line, i + 1)) {
+						if (line[i + 1].value == ".") {
+							if (tokens_check_index(line, i + 2)) {
+								i = i + 2;
+								auto result = getReference(false);
+								Constructor access_detail = get<Constructor>(result);
+								Constructor member_access;
+								member_access.setName("member_access");
+								member_access.addProperty(access_detail);
+								reference.addProperty(member_access);
+							}
+							else {
+								throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon required", currentFileName, i + 1));
+								return make_tuple(Constructor(), false);
+							}
+						}
+						else {
+							throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon required", currentFileName, i + 1));
+							return make_tuple(Constructor(), false);
+						}
+					}
+					else {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Semicolon required", currentFileName, i));
+						return make_tuple(Constructor(), false);
+					}
+
+					cerr << "! Compiler internal error (code: SC0001)" << endl;
+					return make_tuple(Constructor(), false);
+				};
+
+
+				const vector<string> assignment_operators = { "=", "+=", "-=", "*=", "/=", "%=" };
+				const vector<string> relational_operators = { "==", "!=", "<", ">", "<=", ">=" };
+
+				if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
+					if (depth != 0) {
+						throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected operator use.", currentFileName, line[i].line));
+						continue;
+					}
+
+					Constructor sub_expression = Constructor();
+					sub_expression.setName(string("expression").append(to_string(expression_index)));
+					Constructor operation = Constructor();
+					operation.setName("operation");
+					operation.addProperty("type", line[i].value);
+					Constructor left = Constructor();
+					left.setName("left");
+					Constructor right = Constructor();
+					right.setName("right");
+
+					tuple<Constructor, bool> right_expression = getExpression(line, i + 1, depth + 1, true);
+					if (!get<bool>(right_expression)) {
+						return make_tuple(Constructor(), false);
+					}
+					for (int j = 0; j < get<Constructor>(right_expression).getProperties().size(); j++) {
+						right.addProperty(get<Constructor>(right_expression).getProperties()[j]);
+					}
+
+					operation.addProperty(left);
+					operation.addProperty(right);
+					sub_expression.addProperty(operation);
+					expression.addProperty(sub_expression);
+				}
+
+				if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
+
+				}
+
+				
 				continue;
 			}
 
+			// return value
 			if (line[i].value == "return") {
 				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
 
@@ -1024,65 +1116,13 @@ namespace Slent {
 				}
 				continue;
 			}
-
-			if (line[i].value == ".") {
-				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
-
-				Constructor sub_expression = Constructor();
-				sub_expression.setName(string("expression").append(to_string(expression_index)));
-				expression_index++;
-				Constructor member_access = Constructor();
-				member_access.setName("member_access");
-				member_access.addProperty("access_dir", line[i + 1].value);
-				sub_expression.addProperty(member_access);
-				expression.addProperty(sub_expression);
-				expression_index++;
-				i = i + 1;
-				continue;
-			}
-
-			const vector<string> assignment_operators = { "=", "+=", "-=", "*=", "/=", "%=" };
-			const vector<string> relational_operators = { "==", "!=", "<", ">", "<=", ">=" };
-
-			if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
-				if (depth != 0) {
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "Unexpected operator use.", currentFileName, line[i].line));
-					continue;
-				}
-
-				Constructor operation = Constructor();
-				operation.setName("operation");
-				operation.addProperty("type", line[i].value);
-				Constructor left = Constructor();
-				left.setName("left");
-				Constructor right = Constructor();
-				right.setName("right");
-
-				for (int j = 0; j < expression.getProperties().size(); j++) {
-					left.addProperty(expression.getProperties()[j]);
-				}
-
-				tuple<Constructor, bool> right_expression = getExpression(line, i + 1, depth + 1, true);
-				if (!get<bool>(right_expression)) {
-					return make_tuple(Constructor(), false);
-				}
-				for (int j = 0; j < get<Constructor>(right_expression).getProperties().size(); j++) {
-					right.addProperty(get<Constructor>(right_expression).getProperties()[j]);
-				}
-
-				operation.addProperty(left);
-				operation.addProperty(right);
-				expression = Constructor();
-				expression.setName("expression");
-				expression.addProperty(operation);
-			}
-
-			if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
-
-			}
 		}
 
 		return make_tuple(expression, true);
+	}
+
+	bool tokens_check_index(vector<Token> tokens, int index) {
+		return tokens.size() >= (index + 1);
 	}
 
 	vector<vector<Token>> SlentCompiler::split_token(vector<Token> tokens, Scope scope, string delimiter) {
@@ -1152,17 +1192,6 @@ namespace Slent {
 		}
 	}
 
-	bool SlentCompiler::classExist(vector<Token> tokens, string className) {
-		for (int i = 0; i < tokens.size(); i++) {
-			if (tokens[i].value == "class") {
-				if (tokens[i + 1].value == className) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
 	void SlentCompiler::throwCompileMessage(CompileMessage compileMessage) {
 		string type;
 		int color;
@@ -1208,7 +1237,7 @@ namespace Slent {
 			regex commentRegex("//.*");
 			code = regex_replace(preprocessed_code, commentRegex, "");
 
-			vector<Token> tokens = tokenizer(code);
+			vector<Token> tokens = lexer(code);
 
 
 			// print tokens
@@ -1242,7 +1271,7 @@ namespace Slent {
 #endif
 		}
 		catch (const invalid_argument& e) {
-			cerr << "Compiler internal error: " << e.what() << endl;
+			cerr << "! Compiler internal error (code: SC0000)" << endl << e.what() << endl;
 		}
 
 		currentFileName = "";
