@@ -9,7 +9,7 @@
 
 #include "Slent.h"
 
-#include "Error.h"
+#include "CompileMessage.h"
 
 using namespace std;
 
@@ -1099,7 +1099,7 @@ namespace Slent {
 				}
 
 				if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
-
+					
 				}
 
 				
