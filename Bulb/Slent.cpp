@@ -600,7 +600,7 @@ namespace Slent {
 					continue;
 				}
 
-				Constructor constructor_body = getConstructorBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
+				Constructor constructor_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
 				constructor_declear.addProperty(constructor_body);
 
 				classConstructor.addProperty(constructor_declear);
@@ -609,102 +609,7 @@ namespace Slent {
 
 		return classConstructor;
 	}
-
-	Constructor SlentCompiler::getConstructorBody(vector<Token> tokens, Scope scope) {
-		Constructor constructorBody = Constructor();
-		constructorBody.setName("body");
-		vector<vector<Token>> split = split_token(tokens, scope, ";");
-		int element_index = 0;
-		int variable_declear_index = 0;
-		for (int i = 0; i < split.size(); i++) {
-			if (split[i][0].value == ";") {
-				continue;
-			}
-
-			Constructor element = Constructor();
-			element.setName(string("element").append(to_string(element_index)));
-
-			if ((split[i][0].value == "const") && (split[i][1].value == "var")) { // declear constant variable
-				Constructor constant_variable_declear = Constructor();
-				constant_variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
-				constant_variable_declear.addProperty("isConst", "1");
-
-				if (split[i].size() < 3) {
-					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
-					continue;
-				}
-
-				if ((split[i][2].value == "public") || (split[i][2].value == "private")) {
-					throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[i + 1].line));
-					continue;
-				}
-
-				if ((split[i][2].type != TokenType::KEYWORD) && (split[i][2].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
-					continue;
-				}
-				constant_variable_declear.addProperty("type", split[i][1].value);
-
-				if (split[i].size() < 5) {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, split[i][2].line));
-					continue;
-				}
-
-				if (split[i][3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0012, currentFileName, split[i][3].line));
-					continue;
-				}
-				constant_variable_declear.addProperty("name", split[i][2].value);
-
-				if (split[i][4].value == ";") {
-					constant_variable_declear.addProperty("init", "");
-				}
-				else if (split[i][4].value == "=") {
-					if ((split[i].size() < 7) || (split[i][5].value == ";")) {
-						throwCompileMessage(CompileMessage(SL0016, currentFileName, split[i][5].line));
-						continue;
-					}
-
-					Constructor expression;
-				}
-				else {
-					throwCompileMessage(CompileMessage(SL0017, currentFileName, split[i][3].line));
-					continue;
-				}
-
-				variable_declear_index++;
-				constructorBody.addProperty(element);
-				element_index++;
-				continue;
-			}
-
-			if (split[i][0].value == "var") { // declear variable
-				Constructor variable_declear = Constructor();
-				variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
-				variable_declear.addProperty("isConst", "0");
-
-				variable_declear_index++;
-				constructorBody.addProperty(element);
-				element_index++;
-				continue;
-			}
-
-			vector<Token> line = split[i];
-			if (line.back().value == ";") {
-				line.pop_back();
-			}
-			tuple<Constructor, bool> expression = getExpression(line, 0, 0, false);
-			if (!get<bool>(expression)) {
-				continue;
-			}
-
-			element.addProperty(get<Constructor>(expression));
-			constructorBody.addProperty(element);
-		}
-
-		return constructorBody;
-	}
-
+	
 	Constructor SlentCompiler::getClassVariables(vector<Token> tokens, Scope scope) {
 		Constructor classVariables = Constructor();
 		classVariables.setName("variables");
