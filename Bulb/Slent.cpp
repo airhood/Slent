@@ -1009,11 +1009,12 @@ namespace Slent {
 					expression.addProperty(get<Constructor>(getOperation_result));
 					continue;
 				}
-				
-
 				if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
-					
-
+					tuple<Constructor, bool> getOperation_result = getOperation();
+					if (!get<bool>(getOperation_result)) {
+						return make_tuple(Constructor(), false);
+					}
+					expression.addProperty(get<Constructor>(getOperation_result));
 					continue;
 				}
 				
