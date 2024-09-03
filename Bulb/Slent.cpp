@@ -968,7 +968,7 @@ namespace Slent {
 				const vector<string> assignment_operators = { "=", "+=", "-=", "*=", "/=", "%=" };
 				const vector<string> relational_operators = { "==", "!=", "<", ">", "<=", ">=" };
 
-				auto getOperation = [line, &i, this]() -> tuple<Constructor, bool> {
+				auto getOperation = [line, &i, this, &expression, &depth]() -> tuple<Constructor, bool> {
 					Constructor operation = Constructor();
 					operation.setName("operation");
 					operation.addProperty("type", line[i].value);
@@ -993,8 +993,8 @@ namespace Slent {
 
 					operation.addProperty(left);
 					operation.addProperty(right);
-					return operation;
-				}
+					return make_tuple(operation, true);
+				};
 
 				if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
 					if (depth != 0) {
@@ -1016,6 +1016,7 @@ namespace Slent {
 					}
 					expression.addProperty(get<Constructor>(getOperation_result));
 					continue;
+
 				}
 				
 				continue;
