@@ -894,7 +894,6 @@ namespace Slent {
 		//return make_tuple(Constructor(), true);
 		Constructor expression = Constructor();
 		expression.setName("expression");
-		int expression_index = 0;
 
 		for (int i = start_index; i < (((depth == 0) || ignore_range) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
 			if (line[i].type == TokenType::IDENTIFIER) {
@@ -917,11 +916,7 @@ namespace Slent {
 					Constructor parameter_constructor = get<Constructor>(get_parameter);
 					parameter_constructor.setName("parameters");
 					function_call.addProperty(parameter_constructor);
-					Constructor new_expression = Constructor();
-					new_expression.setName(string("expression").append(to_string(expression_index)));
-					new_expression.addProperty(function_call);
-					expression.addProperty(new_expression);
-					expression_index++;
+					expression.addProperty(function_call);
 					i = findBracketClose(line, i + 1, 0);
 					continue;
 				}
@@ -973,14 +968,7 @@ namespace Slent {
 				const vector<string> assignment_operators = { "=", "+=", "-=", "*=", "/=", "%=" };
 				const vector<string> relational_operators = { "==", "!=", "<", ">", "<=", ">=" };
 
-				if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
-					if (depth != 0) {
-						throwCompileMessage(CompileMessage(SL0023, currentFileName, line[i].line));
-						continue;
-					}
-
-					Constructor sub_expression = Constructor();
-					sub_expression.setName(string("expression").append(to_string(expression_index)));
+				auto getOperation = [line, &i, this]() -> tuple<Constructor, bool> {
 					Constructor operation = Constructor();
 					operation.setName("operation");
 					operation.addProperty("type", line[i].value);
@@ -989,24 +977,45 @@ namespace Slent {
 					Constructor right = Constructor();
 					right.setName("right");
 
-					tuple<Constructor, bool> right_expression = getExpression(line, i + 1, depth + 1, true);
-					if (!get<bool>(right_expression)) {
+					// left side of operator
+					for (int j = 0; j < expression.getProperties().size(); j++) {
+						left.addProperty(expression.getProperties()[j]);
+					}
+
+					// right side of operator
+					tuple<Constructor, bool> right_expression_result = getExpression(line, i + 1, depth + 1, true);
+					if (!get<bool>(right_expression_result)) {
 						return make_tuple(Constructor(), false);
 					}
-					for (int j = 0; j < get<Constructor>(right_expression).getProperties().size(); j++) {
-						right.addProperty(get<Constructor>(right_expression).getProperties()[j]);
+					for (int j = 0; j < get<Constructor>(right_expression_result).getProperties().size(); j++) {
+						right.addProperty(get<Constructor>(right_expression_result).getProperties()[j]);
 					}
 
 					operation.addProperty(left);
 					operation.addProperty(right);
-					sub_expression.addProperty(operation);
-					expression.addProperty(sub_expression);
+					return operation;
 				}
+
+				if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
+					if (depth != 0) {
+						throwCompileMessage(CompileMessage(SL0023, currentFileName, line[i].line));
+						continue;
+					}
+
+					tuple<Constructor, bool> getOperation_result = getOperation();
+					if (!get<bool>(getOperation_result)) {
+						return make_tuple(Constructor(), false);
+					}
+					expression.addProperty(get<Constructor>(getOperation_result));
+					continue;
+				}
+				
 
 				if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
 					
-				}
 
+					continue;
+				}
 				
 				continue;
 			}
