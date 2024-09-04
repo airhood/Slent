@@ -150,7 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Constructor.h" />
-    <ClInclude Include="Error.h" />
+    <ClInclude Include="CompileMessage.h" />
     <ClInclude Include="Slent.h" />
     <ClInclude Include="SlentSystem.h" />
   </ItemGroup>

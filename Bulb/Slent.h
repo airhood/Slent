@@ -154,12 +154,13 @@ namespace Slent {
         Constructor parser(std::vector<Token> tokens);
         std::tuple<Constructor, int, bool> getClass(std::vector<Token> tokens, int cursor);
         Constructor getClassMembers(std::vector<Token> tokens, Scope scope);
-        Constructor getClassConstructors(std::vector<Token> tokens, Scope scope);
+        std::vector<Constructor> getClassConstructors(std::vector<Token> tokens, Scope scope);
         Constructor getConstructorBody(std::vector<Token> tokens, Scope scope);
-        Constructor getClassVariables(std::vector<Token> tokens, Scope scope);
-        Constructor getClassFunctions(std::vector<Token> tokens, Scope scope);
+        std::vector<Constructor> getClassVariables(std::vector<Token> tokens, Scope scope);
+        std::vector<Constructor> getClassFunctions(std::vector<Token> tokens, Scope scope);
         Constructor getFunctionBody(std::vector<Token> tokens, Scope scope);
         std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth, bool ignore_range);
+        bool tokens_check_index(std::vector<Token> tokens, int index);
         std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
         bool check_type(std::string type);
         int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);

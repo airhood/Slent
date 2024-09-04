@@ -533,23 +533,28 @@ namespace Slent {
 	Constructor SlentCompiler::getClassMembers(vector<Token> tokens, Scope scope) {
 		Constructor classMembers = Constructor();
 		classMembers.setName("members");
-		Constructor classConstructor = getClassConstructors(tokens, scope);
-		classConstructor.addProperty(classConstructor);
-		Constructor classVariables = getClassVariables(tokens, scope);
-		classMembers.addProperty(classVariables);
-		Constructor classFunctions = getClassFunctions(tokens, scope);
-		classMembers.addProperty(classFunctions);
+		vector<Constructor> classConstructor = getClassConstructors(tokens, scope);
+		for (int i = 0; i < classConstructor.size(); i++) {
+			classMembers.addProperty(classConstructor[i]);
+		}
+		vector<Constructor> classVariables = getClassVariables(tokens, scope);
+		for (int i = 0; i < classVariables.size(); i++) {
+			classMembers.addProperty(classVariables[i]);
+		}
+		vector<Constructor> classFunctions = getClassFunctions(tokens, scope);
+		for (int i = 0; i < classFunctions.size(); i++) {
+			classMembers.addProperty(classFunctions[i]);
+		}
 
 		return classMembers;
 	}
 
-	Constructor SlentCompiler::getClassConstructors(vector<Token> tokens, Scope scope) {
-		Constructor classConstructor = Constructor();
-		classConstructor.setName("constructors");
+	vector<Constructor >SlentCompiler::getClassConstructors(vector<Token> tokens, Scope scope) {
+		vector<Constructor> classConstructors;
 		for (int i = scope.start; i <= scope.end; i++) {
 			if (tokens[i].value == "construct") {
-				Constructor constructor_declear = Constructor();
-				constructor_declear.setName("constructor");
+				Constructor constructor = Constructor();
+				constructor.setName("constructor");
 
 				if (tokens[i + 1].value != "(") {
 					throwCompileMessage(CompileMessage(SL0010, currentFileName, tokens[i + 4].line));
@@ -591,7 +596,7 @@ namespace Slent {
 					k++;
 					j = j + 2;
 				}
-				constructor_declear.addProperty(parameters);
+				constructor.addProperty(parameters);
 
 				i = t_find_next(tokens, i + 2, vector<string> {")"});
 
@@ -601,19 +606,17 @@ namespace Slent {
 				}
 
 				Constructor constructor_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
-				constructor_declear.addProperty(constructor_body);
+				constructor.addProperty(constructor_body);
 
-				classConstructor.addProperty(constructor_declear);
+				classConstructors.push_back(constructor);
 			}
 		}
 
-		return classConstructor;
+		return classConstructors;
 	}
 	
-	Constructor SlentCompiler::getClassVariables(vector<Token> tokens, Scope scope) {
-		Constructor classVariables = Constructor();
-		classVariables.setName("variables");
-		int variable_declear_index = 0;
+	vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope scope) {
+		vector<Constructor> classVariables;
 		for (int i = scope.start; i <= scope.end; i++) {
 			if ((tokens[i].value == "construct") || (tokens[i].value == "func")) {
 				i = findBraceClose(tokens, t_find_next(tokens, i, vector<string> {"{"}), 0);
@@ -621,13 +624,13 @@ namespace Slent {
 			}
 
 			if (tokens[i].value == "var") {
-				Constructor variable_declear = Constructor();
-				variable_declear.setName(string("variable_declear").append(to_string(variable_declear_index)));
+				Constructor variable = Constructor();
+				variable.setName("variable");
 
 				// get variable access_modifier
 				if ((tokens[i + 1].value == "public") || (tokens[i + 1].value == "private")) {
 					// var [access_modifier] [type] [var_name]
-					variable_declear.addProperty("access_modifier", tokens[i + 1].value);
+					variable.addProperty("access_modifier", tokens[i + 1].value);
 					i = i + 2;
 				}
 				else {
@@ -640,22 +643,21 @@ namespace Slent {
 					throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i].line));
 					continue;
 				}
-				variable_declear.addProperty("type", tokens[i].value);
+				variable.addProperty("type", tokens[i].value);
 
 				// get variable name
 				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[i + 1].line));
 					continue;
 				}
-				variable_declear.addProperty("name", tokens[i + 1].value);
+				variable.addProperty("name", tokens[i + 1].value);
 
 				if (tokens[i + 2].value != ";") {
 					throwCompileMessage(CompileMessage(SL0017, currentFileName, tokens[i + 1].line));
 					continue;
 				}
 
-				classVariables.addProperty(variable_declear);
-				variable_declear_index++;
+				classVariables.push_back(variable);
 
 				i = findNextSemicolon(tokens, i + 2);
 			}
@@ -664,10 +666,8 @@ namespace Slent {
 		return classVariables;
 	}
 
-	Constructor SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope) {
-		Constructor classFunctions = Constructor();
-		classFunctions.setName("func");
-		int function_declear_index = 0;
+	vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope) {
+		vector<Constructor> classFunctions;
 		for (int i = scope.start; i <= scope.end; i++) {
 			if (tokens[i].value == "func") {
 				if ((i + 1) > scope.end) {
@@ -680,9 +680,9 @@ namespace Slent {
 					continue;
 				}
 
-				Constructor function_declear = Constructor();
-				function_declear.setName(string("function_declear").append(to_string(function_declear_index)));
-				function_declear.addProperty("name", tokens[i + 1].value);
+				Constructor function = Constructor();
+				function.setName("function");
+				function.addProperty("name", tokens[i + 1].value);
 
 				if ((i + 2) > scope.end) {
 					throwCompileMessage(CompileMessage(SL0010, currentFileName, tokens[i + 1].line));
@@ -702,7 +702,7 @@ namespace Slent {
 				int k = 0;
 
 				if (tokens[i + 1].value == ")") {
-					function_declear.addProperty("parameters", "");
+					function.addProperty("parameters", "");
 					goto get_parameter_finished;
 				}
 
@@ -744,7 +744,7 @@ namespace Slent {
 					j = j + 2;
 				}
 
-				function_declear.addProperty(parameters);
+				function.addProperty(parameters);
 			get_parameter_finished:
 
 				i = t_find_next(tokens, i + 1, vector<string> {")"});
@@ -765,7 +765,7 @@ namespace Slent {
 							throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i + 3].line));
 							continue;
 						}
-						function_declear.addProperty("return_type", tokens[i + 2].value);
+						function.addProperty("return_type", tokens[i + 2].value);
 						if (tokens[i + 3].value != "{") {
 							throwCompileMessage(CompileMessage(SL0021, currentFileName, tokens[i + 3].line));
 						}
@@ -778,15 +778,14 @@ namespace Slent {
 				// tokens[i + 1].value == "{" => true
 				i = i + 1;
 
-				function_declear.addProperty("return_type", "");
+				function.addProperty("return_type", "");
 
 			return_type_done:
 
 				Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
-				function_declear.addProperty(function_body);
+				function.addProperty(function_body);
 
-				classFunctions.addProperty(function_declear);
-				function_declear_index++;
+				classFunctions.push_back(function);
 			}
 		}
 
@@ -929,7 +928,10 @@ namespace Slent {
 
 					if (origin) {
 						reference.setName("reference");
-						return;
+						auto result = getReference(false);
+						Constructor reference_detail = get<Constructor>(result);
+						reference.addProperty(reference_detail);
+						return make_tuple(reference, true);
 					}
 
 					reference.setName(line[i].value);
@@ -939,6 +941,9 @@ namespace Slent {
 							if (tokens_check_index(line, i + 2)) {
 								i = i + 2;
 								auto result = getReference(false);
+								if (!get<bool>(result)) {
+									return make_tuple(Constructor(), false);
+								}
 								Constructor access_detail = get<Constructor>(result);
 								Constructor member_access;
 								member_access.setName("member_access");
@@ -1037,7 +1042,7 @@ namespace Slent {
 		return make_tuple(expression, true);
 	}
 
-	bool tokens_check_index(vector<Token> tokens, int index) {
+	bool SlentCompiler::tokens_check_index(vector<Token> tokens, int index) {
 		return tokens.size() >= (index + 1);
 	}
 
@@ -1148,8 +1153,9 @@ namespace Slent {
 
 #ifdef _DEBUG
 		try {
+			cout << "source code:" << endl << code << endl << endl;
 			string preprocessed_code = preprocess(code);
-			cout << "preprocessed_code:" << endl << preprocessed_code << endl;
+			cout << "preprocessed_code:" << endl << preprocessed_code << endl << endl;
 			regex commentRegex("//.*");
 			code = regex_replace(preprocessed_code, commentRegex, "");
 
@@ -1180,10 +1186,12 @@ namespace Slent {
 				}
 				cout << "Type: " << tokenTypeStr << ", Value: " << token.value << endl;
 			}
+
+			cout << endl;
 #endif
 			Constructor root = parser(tokens); // AST
 #ifdef _DEBUG
-			cout << "bytecode:" << endl << root.toPrettyString() << endl;
+			cout << "AST:" << endl << root.toPrettyString() << endl;
 #endif
 		}
 		catch (const invalid_argument& e) {

@@ -38,7 +38,7 @@
     <ClInclude Include="SlentSystem.h">
       <Filter>소스 파일</Filter>
     </ClInclude>
-    <ClInclude Include="Error.h">
+    <ClInclude Include="CompileMessage.h">
       <Filter>소스 파일</Filter>
     </ClInclude>
   </ItemGroup>
