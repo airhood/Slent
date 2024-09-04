@@ -37,6 +37,7 @@
 #define SL0021 MessageType::ERROR, "Missing function body"
 #define SL0022 MessageType::ERROR, "Missing bracket."
 #define SL0023 MessageType::ERROR, "Unexpected operator use."
+#define SL0024 MessageType::ERROR, "Constant variable should be initialized when declearing."
 
 
 

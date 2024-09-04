@@ -159,7 +159,7 @@ namespace Slent {
         std::vector<Constructor> getClassVariables(std::vector<Token> tokens, Scope scope);
         std::vector<Constructor> getClassFunctions(std::vector<Token> tokens, Scope scope);
         Constructor getFunctionBody(std::vector<Token> tokens, Scope scope);
-        std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth, bool ignore_range);
+        std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth);
         bool tokens_check_index(std::vector<Token> tokens, int index);
         std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
         bool check_type(std::string type);
