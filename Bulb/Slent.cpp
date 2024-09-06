@@ -414,7 +414,7 @@ namespace Slent {
 					continue;
 				}
 
-				throwCompileMessage(CompileMessage(SL0006(code_line_splits[0]), currentFileName, i + 1));
+				throwCompileMessage(CompileMessage(SL0006, currentFileName, i + 1));
 				continue;
 			}
 
