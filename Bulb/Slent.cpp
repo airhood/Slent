@@ -491,20 +491,20 @@ namespace Slent {
 		Constructor root = Constructor();
 		root.setName("root");
 		for (int i = 0; i < tokens.size(); i++) {
-			Token token = tokens[i];
-			if (token.value == "import") {
+			if (tokens[i].value == "import") {
 				Constructor import = Constructor();
 				import.setName("import");
-				import.addProperty("name", tokens[i + 1].value);
+				// TODO: Parse import
 				root.addProperty(import);
 			}
-			else if (token.value == "class") {
+			else if (tokens[i].value == "class") {
+				cout << "class" << tokens[i].line << endl;
 				tuple<Constructor, int, bool> getClass_result = getClass(tokens, i);
-				i = get<1>(getClass_result);
-				if (!get<2>(getClass_result)) {
+				i = get<int>(getClass_result);
+				if (!get<bool>(getClass_result)) {
 					continue;
 				}
-				Constructor class_define = get<0>(getClass_result);
+				Constructor class_define = get<Constructor>(getClass_result);
 				root.addProperty(class_define);
 			}
 		}
@@ -516,12 +516,12 @@ namespace Slent {
 		Constructor class_define = Constructor();
 		class_define.setName("class");
 		if (tokens[cursor + 1].type != TokenType::IDENTIFIER) {
-			throwCompileMessage(CompileMessage(SL0008, currentFileName, tokens[cursor + 1].line + 1));
+			throwCompileMessage(CompileMessage(SL0008, currentFileName, tokens[cursor + 1].line));
 			return make_tuple(class_define, cursor, false);
 		}
 		class_define.addProperty("name", tokens[cursor + 1].value);
 		if (tokens[cursor + 2].value != "{") {
-			throwCompileMessage(CompileMessage(SL0009, currentFileName, tokens[cursor + 1].line + 1));
+			throwCompileMessage(CompileMessage(SL0009, currentFileName, tokens[cursor + 1].line));
 			return make_tuple(class_define, cursor + 1, false);
 		}
 		Constructor members = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
@@ -934,43 +934,35 @@ namespace Slent {
 		expression.setName("expression");
 
 		for (int i = start_index; i < ((depth == 0) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
-			if (line[i].type == TokenType::IDENTIFIER) {
-				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
+			function<tuple<Constructor, bool>(bool)> getReference;
+			getReference = [line, &i, this, &getReference](bool origin) -> tuple<Constructor, bool> {
+				if (line[i].type != TokenType::IDENTIFIER) return make_tuple(Constructor(), false);
 
-				function<tuple<Constructor, bool>(bool)> getReference;
-				getReference = [line, &i, this, &getReference](bool origin) -> tuple<Constructor, bool> {
-					if (line[i].type != TokenType::IDENTIFIER) return make_tuple(Constructor(), false);
+				Constructor reference = Constructor();
 
-					Constructor reference = Constructor();
+				if (origin) {
+					reference.setName("reference");
+					auto result = getReference(false);
+					Constructor reference_detail = get<Constructor>(result);
+					reference.addProperty(reference_detail);
+					return make_tuple(reference, true);
+				}
 
-					if (origin) {
-						reference.setName("reference");
-						auto result = getReference(false);
-						Constructor reference_detail = get<Constructor>(result);
-						reference.addProperty(reference_detail);
-						return make_tuple(reference, true);
-					}
+				reference.setName(line[i].value);
 
-					reference.setName(line[i].value);
-
-					if (tokens_check_index(line, i + 1)) {
-						if (line[i + 1].value == ".") {
-							if (tokens_check_index(line, i + 2)) {
-								i = i + 2;
-								auto result = getReference(false);
-								if (!get<bool>(result)) {
-									return make_tuple(Constructor(), false);
-								}
-								Constructor access_detail = get<Constructor>(result);
-								Constructor member_access;
-								member_access.setName("member_access");
-								member_access.addProperty(access_detail);
-								reference.addProperty(member_access);
-							}
-							else {
-								throwCompileMessage(CompileMessage(SL0017, currentFileName, i + 1));
+				if (tokens_check_index(line, i + 1)) {
+					if (line[i + 1].value == ".") {
+						if (tokens_check_index(line, i + 2) && (line[i + 2].type == TokenType::IDENTIFIER)) {
+							i = i + 2;
+							auto result = getReference(false);
+							if (!get<bool>(result)) {
 								return make_tuple(Constructor(), false);
 							}
+							Constructor access_detail = get<Constructor>(result);
+							Constructor member_access;
+							member_access.setName("member_access");
+							member_access.addProperty(access_detail);
+							reference.addProperty(member_access);
 						}
 						else {
 							throwCompileMessage(CompileMessage(SL0017, currentFileName, i + 1));
@@ -978,13 +970,19 @@ namespace Slent {
 						}
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0017, currentFileName, i));
-						return make_tuple(Constructor(), false);
+						return make_tuple(reference, true);
 					}
-
-					cerr << "! Compiler internal error (code: SC0001)" << endl;
+				}
+				else {
+					throwCompileMessage(CompileMessage(SL0017, currentFileName, i));
 					return make_tuple(Constructor(), false);
-				};
+				}
+
+				return make_tuple(reference, true);
+			};
+
+			if (line[i].type == TokenType::IDENTIFIER) {
+				if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
 				
 				// function call
 				if (line[i + 1].value == "(") {
@@ -1010,11 +1008,15 @@ namespace Slent {
 				
 				auto result = getReference(true);
 				if (!get<bool>(result)) continue;
+				expression.addProperty(get<Constructor>(result));
 				continue;
 			}
 
 			if ((line[i].type == TokenType::CONSTANT) || line[i].type == TokenType::LITERAL) {
-
+				auto result = getReference(true);
+				if (!get<bool>(result)) continue;
+				expression.addProperty(get<Constructor>(result));
+				continue;
 			}
 
 			if (line[i].type == TokenType::OPERATOR) {
