@@ -160,7 +160,8 @@ namespace Slent {
 
         std::string name;
         std::vector<std::string> parameters;
-        std::vector<Token> body;
+        std::vector<Token> body_t;
+        std::string body;
     };
 
     class SlentCompiler {

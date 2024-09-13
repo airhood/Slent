@@ -18,7 +18,7 @@
 #define SL0002 MessageType::ERROR, "Missing macro parameters."
 #define SL0003 MessageType::ERROR, "Missing macro body."
 #define SL0004 MessageType::ERROR, "Unexpected macro parameter syntax."
-#define SL0005 MessageType::ERROR, "Unexpected macro use. Message required."
+#define SL0005 MessageType::ERROR, "Macro command not found."
 #define SL0006 MessageType::ERROR, "Macro not found."
 #define SL0007(token) MessageType::ERROR, string("Unrecognized token \'").append(##token##).append("\'.")
 #define SL0008 MessageType::ERROR, "Class naming rule not followed."

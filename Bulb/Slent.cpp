@@ -65,7 +65,10 @@ namespace Slent {
 		for (int i = 0; i < code_split.size(); i++) {
 			while (regex_search(code_split[i], match, tokenRegex)) {
 				string matched = match.str();
-				if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
+				if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
+					tokens.push_back(Token(TokenType::KEYWORD, matched, i));
+				}
+				else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
 					tokens.push_back(Token(TokenType::IDENTIFIER, matched, i));
 				}
 				else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
@@ -108,11 +111,20 @@ namespace Slent {
 				Macro macro = Macro();
 				macro.name = tokens[i + 1].value;
 
+				if (!vec_check_index(tokens, i + 2)) {
+					throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i].line));
+					continue;
+				}
 				if ((tokens[i + 1].line != tokens[i + 2].line) || (tokens[i + 2].type != TokenType::IDENTIFIER)) {
 					throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i].line));
 					continue;
 				}
 
+
+				if (!vec_check_index(tokens, i + 5)) {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
+					continue;
+				}
 				if (tokens[i + 3].value != "{") {
 					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
 					continue;
@@ -222,16 +234,55 @@ namespace Slent {
 
 				if (tokens[i].value != "=>") {
 					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i - 1].line));
+					continue;
 				}
-				if (tokens[i + 1].value == "{") {
+				if (tokens[i + 1].value != "{") {
 					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
+					continue;
 				}
 
-				for (int j = i + 1; j < findBraceClose(tokens, i + 1, 1); j++) {
-					macro.body.push_back(tokens[j]);
+				int start_line = tokens[i + 2].line;
+				int end_line = tokens[findBraceClose(tokens, i + 1, 1)].line;
+
+				int start_brace_index = lines[start_line].find("{", lines[start_line].find("=>"));
+				
+				if (start_line == tokens[i + 1].line) {
+					
+					macro.body += lines[start_line].substr(start_brace_index);
+				}
+				else {
+					macro.body += lines[start_line];
+				}
+
+				for (int l = start_line + 1; l < end_line; l++) {
+					macro.body += lines[l];
+				}
+
+				if (end_line == tokens[findBraceClose(tokens, i + 1, 1) + 1].line) {
+					int brace_count = 1;
+					for (int l = start_line; l < lines.size(); l++) {
+						for (int j = (l == start_line) ? (start_brace_index + 1) : 0; j < lines[l].size(); j++) {
+							if (lines[l][j] == '{') brace_count++;
+							else if (lines[l][j] == '}') brace_count--;
+
+							if (brace_count == 0) {
+								if (l != end_line) {
+									cerr << "! Compiler internal error (code: SC0001)" << endl;
+									exit(1);
+								}
+								macro.body += lines[end_line].substr(0, j);
+								goto done;
+							}
+						}
+					}
+					done:
+				}
+				else {
+					macro.body += lines[end_line];
 				}
 
 				if (!error) macros.push_back(macro);
+				continue;
 			}
 		}
 
@@ -239,7 +290,12 @@ namespace Slent {
 	}
 
 	string SlentCompiler::run_macro(Macro macro, vector<string> params_val) {
-
+		string result = macro.body;
+		for (int i = 0; i < macro.parameters.size(); i++) {
+			string target = string("#").append(macro.parameters[i]).append("#");
+			result.replace(macro.body.find(target), target.size(), params_val[i]);
+		}
+		return result;
 	}
 
 	int SlentCompiler::p_find_next(string** preprocessor_tokens, int lines, int cursor, vector<string> target) {
