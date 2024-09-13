@@ -27,59 +27,74 @@ namespace Slent {
     };
 
     const std::vector<std::string> keywords = {
-      "import",
+        "import",
 
-      // Access Modifier
-      "public",
-      "private",
+        // Access Modifier
+        "public",
+        "private",
+        "protected",
 
-      // Declear Statement
-      "var",
-      "func",
-      "class",
-      "struct",
-      "construct",
+        // Declear Statement
+        "module",
+        "class",
+        "struct",
+        "func",
+        "var",
+        "construct",
+        "override",
+        "virtual",
+        "abstract",
+        
+        // Date Type
+        "void",
+        "null",
+        "object",
+        "bool",
+        "char",
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "float32",
+        "float64",
+        "string",
+        
+        // Function Return Type
+        "->",
 
-      // Date Type
-      "object",
-      "int",
-      "string",
-      "bool",
-      "float",
-      "double",
-      "char",
-      "short",
-      "null",
-      "void",
+        // Memory Allocation
+        "new",
+        "deep",
+        "const",
+        
+        // Conditional Statement
+        "if",
+        "else",
+        "switch",
+        "case",
+        "default",
+        
+        // Iterative Statement
+        "loop",
+        "for",
+        "while",
+        "do",
+        "foreach",
 
-      "->",
-
-      // tag
-      "@Entry",
-
-      // memory
-      "new",
-      "deep",
-      "const",
-
-      // Conditional Statement
-      "if",
-      "else",
-      "switch",
-      "case",
-      "default",
-
-      // Iterative Statement
-      "for",
-      "while",
-      "do",
-      "foreach",
-
-      // Jumping Statement
-      "break",
-      "continue",
-      "goto",
-      "return"
+        // Exception Handling Statement
+        "try",
+        "catch",
+        "finally",
+        
+        // Jumping Statement
+        "break",
+        "continue",
+        "goto",
+        "return"
     };
 
     // Enum for message types
@@ -141,13 +156,22 @@ namespace Slent {
     const int CYAN_LIGHT = 96;
     const int WHITE_LIGHT = 97;
 
+    struct Macro {
+
+        std::string name;
+        std::vector<std::string> parameters;
+        std::vector<Token> body;
+    };
+
     class SlentCompiler {
     private:
         std::vector<std::tuple<std::string, std::string>> code_files;
         std::string currentFileName;
 
-        std::string** getPreprocessorTokens(std::string code);
+        std::vector<Token> getPreprocessorTokens(std::string code);
         std::string preprocess(std::string code);
+        std::string run_macro(Macro macro, std::vector<std::string> params);
+        
         int p_find_next(std::string** preprocessor_tokens, int lines, int cursor, std::vector<std::string> target);
         int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
         std::vector<Token> lexer(std::string code);
@@ -160,7 +184,6 @@ namespace Slent {
         std::vector<Constructor> getClassFunctions(std::vector<Token> tokens, Scope scope);
         Constructor getFunctionBody(std::vector<Token> tokens, Scope scope);
         std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth);
-        bool tokens_check_index(std::vector<Token> tokens, int index);
         std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
         bool check_type(std::string type);
         int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);

@@ -6,6 +6,7 @@
 #include "Constructor.h"
 #include <sstream>
 #include <functional>
+#include <fstream>
 
 #include "Slent.h"
 
@@ -32,6 +33,9 @@ using namespace std;
  *
  */
 
+
+#define vec_check_index(vec, index) (vec.size() >= (index + 1))
+
 namespace Slent {
 
 	string colorString(string str, int color) {
@@ -50,90 +54,36 @@ namespace Slent {
 		return result;
 	}
 	
-	string** SlentCompiler::getPreprocessorTokens(string code) {
-		vector<string> code_lines = split(code, '\n');
+	vector<Token> SlentCompiler::getPreprocessorTokens(string code) {
+		vector<Token> tokens;
 
-		string** tokens = new string * [code_lines.size()];
-		for (int i = 0; i < code_lines.size(); i++) {
-			tokens[i] = new string[4];
-			tokens[i][0] = "";
-			tokens[i][1] = "";
-			tokens[i][2] = "";
-			tokens[i][3] = "";
-		}
-		string currentToken = "";
-		bool isLiteralOpen = false;
-		bool isFirstToken = true;
-		int k = 0;
-		for (int h = 0; h < code_lines.size(); h++) {
-			if (code_lines[h][0] != '#') {
-				continue;
-			}
-			isFirstToken = true;
-			for (int i = 0; i < code_lines[h].size(); i++) {
-				if (k > 3) {
-					throwCompileMessage(CompileMessage(SL0001, currentFileName, h + 1));
-					break;
+		regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,|~|#)");
+		// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
+		smatch match;
+
+		vector<string> code_split = split(code, '\n');
+		for (int i = 0; i < code_split.size(); i++) {
+			while (regex_search(code_split[i], match, tokenRegex)) {
+				string matched = match.str();
+				if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
+					tokens.push_back(Token(TokenType::IDENTIFIER, matched, i));
 				}
-				if (isFirstToken) {
-					if (code_lines[h][i] == ' ') {
-						tokens[h][k] = currentToken;
-						currentToken = "";
-						isFirstToken = false;
-						k++;
-						continue;
-					}
-					else if (i == (code_lines[h].size() - 1)) {
-						currentToken += code_lines[h][i];
-						tokens[h][0] = currentToken;
-						currentToken = "";
-						isFirstToken = false;
-						k++;
-						continue;
-					}
-
-					currentToken += code_lines[h][i];
-					continue;
+				else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
+					tokens.push_back(Token(TokenType::CONSTANT, matched, i));
 				}
-
-				if (isLiteralOpen) {
-					if (code_lines[h][i] == '\"') {
-						currentToken += "\"";
-						tokens[h][k] = currentToken;
-						currentToken = "";
-						isLiteralOpen = false;
-						continue;
-					}
-					currentToken += code_lines[h][i];
-					continue;
+				else if (regex_match(matched, regex("\"[^\"]*\""))) {
+					tokens.push_back(Token(TokenType::LITERAL, matched, i));
+				}
+				else if (regex_match(matched, regex(R"(==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
+					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
+				}
+				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,|~|#)"))) {
+					tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 				}
 				else {
-					if (code_lines[h][i] == '\"') {
-						currentToken = "";
-						currentToken += "\"";
-						isLiteralOpen = true;
-						continue;
-					}
-					if (code_lines[h][i] == ' ') {
-						tokens[h][k] = currentToken;
-						currentToken = "";
-						k++;
-						continue;
-					}
-					else if (i == (code_lines[h].size() - 1)) {
-						currentToken += code_lines[h][i];
-						tokens[h][k] = currentToken;
-						currentToken = "";
-						k++;
-						continue;
-					}
-					currentToken += code_lines[h][i];
+					throwCompileMessage(CompileMessage(SL0007(matched), currentFileName, i));
 				}
-			}
-			k = 0;
-			if (isLiteralOpen) {
-				throwCompileMessage(CompileMessage(SL0002, currentFileName, h + 1));
-				isLiteralOpen = false;
+				code_split[i] = match.suffix().str();
 			}
 		}
 
@@ -141,291 +91,155 @@ namespace Slent {
 	}
 
 	string SlentCompiler::preprocess(string code) {
-		const int IF_TRUE = 1;
-		const int IF_FALSE = 2;
-		vector<string> code_lines = split(code, '\n');
-		string** preprocessor_tokens = getPreprocessorTokens(code);
-
 		string processed_code = "";
 
-		vector<int> waitingTokenTree;
+		vector<string> lines = split(code, '\n');
+		vector<Token> tokens = getPreprocessorTokens(code);
+		vector<Macro> macros;
+		for (int i = 0; i < tokens.size(); i++) {
+			if (!vec_check_index(tokens, i + 1)) {
+				throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i + 1].line));
+				return "";
+			}
 
-		vector<string> defined_keywords;
-		for (int i = 0; i < code_lines.size(); i++) {
-			if (code_lines[i][0] == '#') {
-				vector<string> code_line_splits = split(code_lines[i], ' ');
+			if ((tokens[i].value == "$") && (tokens[i + 1].value == "macro_def")) {
+				bool error = false;
 
-				if (code_lines[i].size() == 0) {
+				Macro macro = Macro();
+				macro.name = tokens[i + 1].value;
+
+				if ((tokens[i + 1].line != tokens[i + 2].line) || (tokens[i + 2].type != TokenType::IDENTIFIER)) {
+					throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i].line));
 					continue;
 				}
 
-				if (code_line_splits.size() == 0) {
+				if (tokens[i + 3].value != "{") {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
+					continue;
+				}
+				if (tokens[i + 4].value != "$") {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
 					continue;
 				}
 
-				if (code_line_splits[0] == "#define") {
-					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					defined_keywords.push_back(preprocessor_tokens[i][1]);
+				if (tokens[i + 5].value == "(") {
+					i = i + 5;
+				}
+				else {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
 					continue;
 				}
 
-				if (code_line_splits[0] == "#undef") {
-					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					// remove from defined keywords
-					for (int j = 0; j < defined_keywords.size(); j++) {
-						if (defined_keywords[j] == preprocessor_tokens[i][1]) {
-							defined_keywords.erase(defined_keywords.begin() + j);
+				for (int j = i + 1; j < findBracketClose(tokens, i + 4, 1); j++) {
+					if (tokens[j].value == "~") {
+						if (!vec_check_index(tokens, j + 1)) {
+							throwCompileMessage(CompileMessage(SL0025, currentFileName, tokens[j].line));
+							return "";
 						}
-					}
+						
+						if (tokens[j + 1].type == TokenType::IDENTIFIER) {
+							if (tokens[j + 1].value == "null") {
+								throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[j + 1].line));
+							}
+							else {
+								macro.parameters.push_back(tokens[j + 1].value);
+							}
+							
+							if (!vec_check_index(tokens, j + 2)) {
+								throwCompileMessage(CompileMessage(SL0026, currentFileName, tokens[j].line));
+								return "";
+							}
 
-					continue;
-				}
+							if (tokens[j + 2].value == ",") {
+								j = j + 2;
+								continue;
+							}
+							else if (tokens[j + 2].value == ")") {
+								break;
+							}
+							else {
+								throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[j].line));
+								j = t_find_next(tokens, j + 2, vector<string> {","});
+								continue;
+							}
+							continue;
+						}
+						else if (tokens[j + 1].value == ")") {
+							macro.parameters.push_back("~");
+							break;
+						}
+						else {
+							throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[j].line));
 
-				if (code_line_splits[0] == "#if") {
-					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
+							if (!vec_check_index(tokens, j + 2)) {
+								throwCompileMessage(CompileMessage(SL0026, currentFileName, tokens[j + 1].line));
+								return "";
+							}
 
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					auto result = find(defined_keywords.begin(), defined_keywords.end(), preprocessor_tokens[i][1]);
-					if (result == defined_keywords.end()) { // false
-						waitingTokenTree.push_back(IF_FALSE);
-						i = p_find_next(preprocessor_tokens, code_lines.size(), i + 1, vector<string> {"#elif", "#else", "#endif"}) - 1;
-					}
-					else { // true
-						waitingTokenTree.push_back(IF_TRUE);
-					}
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#elif") {
-					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, i + 1));
-						continue;
-					}
-
-					if (preprocessor_tokens[i][1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-					if (preprocessor_tokens[i][2] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (waitingTokenTree.back() == IF_TRUE) {
-						i = p_find_next(preprocessor_tokens, code_lines.size(), i + 1, vector<string> {"#endif"}) - 1;
-						continue;
-					}
-
-					auto result = find(defined_keywords.begin(), defined_keywords.end(), preprocessor_tokens[i][1]);
-					if (result == defined_keywords.end()) { // false
-						i = p_find_next(preprocessor_tokens, code_lines.size(), i + 1, vector<string> {"#elif", "#else", "#endif"});
-					}
-					else { // true
-						waitingTokenTree.erase(waitingTokenTree.end() - 1);
-						waitingTokenTree.push_back(IF_TRUE);
-					}
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#else") {
-					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][1] != "") || (preprocessor_tokens[i][2] != "")) {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (waitingTokenTree.back() == IF_TRUE) {
-						i = p_find_next(preprocessor_tokens, code_lines.size(), i + 1, vector<string> {"#endif"}) - 1;
-						continue;
-					}
-
-					waitingTokenTree.erase(waitingTokenTree.end() - 1);
-					waitingTokenTree.push_back(IF_TRUE);
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#endif") {
-					if (waitingTokenTree.size() == 0) {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][1] != "") || (preprocessor_tokens[i][2] != "")) {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if (preprocessor_tokens[i][3] != "") {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					waitingTokenTree.erase(waitingTokenTree.end() - 1);
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#message") {
-					if (code_line_splits[1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][1].front() != '>') || (preprocessor_tokens[i][1].back() != '<')) {
-						throwCompileMessage(CompileMessage(SL0005, currentFileName, i + 1));
-						continue;
-					}
-
-					string message;
-					preprocessor_tokens[i][1].erase(preprocessor_tokens[i][1].begin());
-					preprocessor_tokens[i][1].erase(preprocessor_tokens[i][1].end() - 1);
-					message = preprocessor_tokens[i][1];
-
-					throwCompileMessage(CompileMessage(MessageType::MESSAGE, "[Preprocessor]" + message, currentFileName, i + 1));
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#warning") {
-					if (code_line_splits[1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][1].front() != '>') || (preprocessor_tokens[i][1].back() != '<')) {
-						throwCompileMessage(CompileMessage(SL0005, currentFileName, i + 1));
-						continue;
-					}
-
-					preprocessor_tokens[i][1].erase(preprocessor_tokens[i][1].begin());
-					preprocessor_tokens[i][1].erase(preprocessor_tokens[i][1].end() - 1);
-					string message;
-					message = preprocessor_tokens[i][1];
-
-					throwCompileMessage(CompileMessage(MessageType::WARNING, "[Preprocessor]" + message, currentFileName, i + 1));
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#error") {
-					if (code_line_splits[1] == "") {
-						throwCompileMessage(CompileMessage(SL0003, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][2] != "") || (preprocessor_tokens[i][3] != "")) {
-						throwCompileMessage(CompileMessage(SL0001, currentFileName, i + 1));
-						continue;
-					}
-
-					if ((preprocessor_tokens[i][1].front() != '>') || (preprocessor_tokens[i][1].back() != '<')) {
-						throwCompileMessage(CompileMessage(SL0005, currentFileName, i + 1));
-						continue;
-					}
-
-					preprocessor_tokens[i][1].erase(preprocessor_tokens[i][1].begin());
-					preprocessor_tokens[i][1].erase(preprocessor_tokens[i][1].end() - 1);
-					string message;
-					message = preprocessor_tokens[i][1];
-
-					throwCompileMessage(CompileMessage(MessageType::ERROR, "[Preprocessor]" + message, currentFileName, i + 1));
-
-					continue;
-				}
-
-				if (code_line_splits[0] == "#pragma") {
-					if (code_line_splits.size() > 1) {
-						if (code_line_splits[1] == "warning") {
-							if (code_line_splits.size() > 2) {
-								if (code_line_splits[2] == "disable") {
-
-								}
-								else if (code_line_splits[2] == "enable") {
-
-								}
+							if (tokens[j + 2].value == ",") {
+								j = j + 2;
+								continue;
+							}
+							else {
+								throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[j + 1].line));
+								j = t_find_next(tokens, j + 2, vector<string> {","});
+								continue;
 							}
 						}
 					}
+					else if (tokens[j].type == TokenType::IDENTIFIER) {
+						macro.parameters.push_back(tokens[j].value);
 
-					continue;
+						if (!vec_check_index(tokens, j + 1)) {
+							throwCompileMessage(CompileMessage(SL0026, currentFileName, tokens[j].line));
+							return "";
+						}
+
+						if (tokens[j + 1].value == ",") {
+							j = j + 1;
+							continue;
+						}
+						else if (tokens[j + 1].value == ")") {
+							break;
+						}
+						else {
+							throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[j].line));
+							j = t_find_next(tokens, j + 2, vector<string> {","});
+							continue;
+						}
+						continue;
+					}
+					else {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[j].line));
+					}
+				}
+				i = findBracketClose(tokens, i + 3, 1) + 1;
+
+				if (!vec_check_index(tokens, i)) {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i - 1].line));
+					return "";
 				}
 
-				throwCompileMessage(CompileMessage(SL0006, currentFileName, i + 1));
-				continue;
-			}
+				if (tokens[i].value != "=>") {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i - 1].line));
+				}
+				if (tokens[i + 1].value == "{") {
+					throwCompileMessage(CompileMessage(SL0003, currentFileName, tokens[i].line));
+				}
 
-			if (processed_code != "") {
-				processed_code += "\n";
+				for (int j = i + 1; j < findBraceClose(tokens, i + 1, 1); j++) {
+					macro.body.push_back(tokens[j]);
+				}
+
+				if (!error) macros.push_back(macro);
 			}
-			processed_code += code_lines[i];
-			continue;
 		}
 
 		return processed_code;
+	}
+
+	string SlentCompiler::run_macro(Macro macro, vector<string> params_val) {
+
 	}
 
 	int SlentCompiler::p_find_next(string** preprocessor_tokens, int lines, int cursor, vector<string> target) {
@@ -893,7 +707,7 @@ namespace Slent {
 				continue;
 			}
 			else if (line[i].value == "return") {
-				if (!tokens_check_index(line, i + 1)) {
+				if (!vec_check_index(line, i + 1)) {
 					throwCompileMessage(CompileMessage(SL0017, currentFileName, line[i].line));
 					continue;
 				}
@@ -950,9 +764,9 @@ namespace Slent {
 
 				reference.setName(line[i].value);
 
-				if (tokens_check_index(line, i + 1)) {
+				if (vec_check_index(line, i + 1)) {
 					if (line[i + 1].value == ".") {
-						if (tokens_check_index(line, i + 2) && (line[i + 2].type == TokenType::IDENTIFIER)) {
+						if (vec_check_index(line, i + 2) && (line[i + 2].type == TokenType::IDENTIFIER)) {
 							i = i + 2;
 							auto result = getReference(false);
 							if (!get<bool>(result)) {
@@ -995,7 +809,7 @@ namespace Slent {
 						continue;
 					}
 					if (findBracketClose(line, i + 1, 0) == -1) {
-						throwCompileMessage(CompileMessage(SL0022, currentFileName, line[i + 1].line));
+						throwCompileMessage(CompileMessage(SL0026, currentFileName, line[i + 1].line));
 						return make_tuple(Constructor(), false);
 					}
 					Constructor parameter_constructor = get<Constructor>(get_parameter);
@@ -1078,10 +892,6 @@ namespace Slent {
 		}
 
 		return make_tuple(expression, true);
-	}
-
-	bool SlentCompiler::tokens_check_index(vector<Token> tokens, int index) {
-		return tokens.size() >= (index + 1);
 	}
 
 	vector<vector<Token>> SlentCompiler::split_token(vector<Token> tokens, Scope scope, string delimiter) {
