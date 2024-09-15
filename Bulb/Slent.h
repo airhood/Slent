@@ -157,6 +157,7 @@ namespace Slent {
     const int WHITE_LIGHT = 97;
 
     struct Macro {
+        std::string module_info;
 
         std::string name;
         std::vector<std::string> parameters;
@@ -170,8 +171,10 @@ namespace Slent {
         std::string currentFileName;
 
         std::vector<Token> getPreprocessorTokens(std::string code);
-        std::string preprocess(std::string code);
+        std::string preprocess(Constructor module_tree, std::string code);
         std::string run_macro(Macro macro, std::vector<std::string> params);
+
+        Constructor getModuleTree(std::string code);
         
         int p_find_next(std::string** preprocessor_tokens, int lines, int cursor, std::vector<std::string> target);
         int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);

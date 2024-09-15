@@ -9,6 +9,7 @@ void Constructor::setName(std::string name) {
 }
 
 Constructor Constructor::getProperty(int index) {
+    if ((index + 1) > properties.size()) return Constructor();
     return properties.at(index);
 }
 
@@ -18,6 +19,20 @@ Constructor Constructor::getProperty(std::string name) {
             return properties.at(i);
         }
     }
+    return Constructor();
+}
+
+bool Constructor::propertyExist(int index) {
+    return properties.size() >= (index + 1);
+}
+
+bool Constructor::propertyExist(std::string name) {
+    for (int i = 0; i < properties.size(); i++) {
+        if (properties.at(i).getName() == name) {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::vector<Constructor> Constructor::getProperties() {

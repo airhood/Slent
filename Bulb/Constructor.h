@@ -13,6 +13,8 @@ public:
     void setName(std::string name);
     class Constructor getProperty(int index);
     class Constructor getProperty(std::string name);
+    bool propertyExist(int index);
+    bool propertyExist(std::string name);
     std::vector<Constructor> getProperties();
     void addProperty(std::string name, std::string value);
     void addProperty(Constructor property);
