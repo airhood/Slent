@@ -1,6 +1,6 @@
 #include "Constructor.h"
 
-std::string Constructor::getName() {
+std::string Constructor::getName() const {
     return name;
 }
 
@@ -8,12 +8,12 @@ void Constructor::setName(std::string name) {
     this->name = name;
 }
 
-Constructor Constructor::getProperty(int index) {
+Constructor Constructor::getProperty(int index) const {
     if ((index + 1) > properties.size()) return Constructor();
     return properties.at(index);
 }
 
-Constructor Constructor::getProperty(std::string name) {
+Constructor Constructor::getProperty(std::string name) const {
     for (int i = 0; i < properties.size(); i++) {
         if (properties.at(i).getName() == name) {
             return properties.at(i);
@@ -22,11 +22,11 @@ Constructor Constructor::getProperty(std::string name) {
     return Constructor();
 }
 
-bool Constructor::propertyExist(int index) {
+bool Constructor::propertyExist(int index) const {
     return properties.size() >= (index + 1);
 }
 
-bool Constructor::propertyExist(std::string name) {
+bool Constructor::propertyExist(std::string name) const {
     for (int i = 0; i < properties.size(); i++) {
         if (properties.at(i).getName() == name) {
             return true;
@@ -35,7 +35,7 @@ bool Constructor::propertyExist(std::string name) {
     return false;
 }
 
-std::vector<Constructor> Constructor::getProperties() {
+std::vector<Constructor> Constructor::getProperties() const {
     return properties;
 }
 
@@ -52,15 +52,16 @@ void Constructor::addProperty(Constructor property) {
     properties.push_back(property);
 }
 
-std::string Constructor::getValue() {
+std::string Constructor::getValue() const {
     return properties.at(0).getName();
 }
 
-std::string Constructor::toString() {
+std::string Constructor::toString() const {
     if (properties.empty()) {
         return name;
     }
-    std::string str = name.append("{");
+    std::string str = name;
+    str.append("{");
     for (int i = 0; i < properties.size(); i++) {
         if (i != 0) {
             str.append(",");
@@ -71,7 +72,7 @@ std::string Constructor::toString() {
     return str;
 }
 
-std::string Constructor::toPrettyString(int depth) {
+std::string Constructor::toPrettyString(int depth) const {
     if (properties.empty()) {
         std::string str = "";
         for (int i = 0; i < depth; i++) {
@@ -84,7 +85,8 @@ std::string Constructor::toPrettyString(int depth) {
     for (int i = 0; i < depth; i++) {
         str.append("  ");
     }
-    str += name.append("{\n");
+    str += name;
+    str.append("{\n");
     for (int i = 0; i < properties.size(); i++) {
         if (i != 0) {
             str.append(",\n");

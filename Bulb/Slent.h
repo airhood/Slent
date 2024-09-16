@@ -175,6 +175,7 @@ namespace Slent {
         std::string run_macro(Macro macro, std::vector<std::string> params);
 
         Constructor getModuleTree(std::string code);
+        Constructor getSubModuleTree(std::string code, Scope scope);
         
         int p_find_next(std::string** preprocessor_tokens, int lines, int cursor, std::vector<std::string> target);
         int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);

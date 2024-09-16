@@ -44,6 +44,9 @@
 #define SL0027 MessageType::ERROR, "Missing \')\'."
 #define SL0028 MessageType::ERROR, "Export target expected."
 #define SL0029 MessageType::ERROR, "Module name expected."
+#define SL0030 MessageType::ERROR, "Module naming rule not followed."
+#define SL0031 MessageType::ERROR, "Missing module body."
+#define SL0032 MessageType::ERROR, "Missing \'}\'."
 
 
 

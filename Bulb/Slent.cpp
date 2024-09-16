@@ -341,13 +341,166 @@ namespace Slent {
 				}
 				
 				if (tokens[i + 1].value != "module") {
-					if (!vec_check_index(tokens, i + 1)) {
-						throwCompileMessage(CompileMessage(SL0028, currentFileName, tokens[i].line));
+					if (!vec_check_index(tokens, i + 2)) {
+						throwCompileMessage(CompileMessage(SL0029, currentFileName, tokens[i + 1].line));
+						break;
 					}
+
+					if (tokens[i + 2].type != TokenType::IDENTIFIER) {
+						throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 2].line));
+						continue;
+					}
+
+					if (!vec_check_index(tokens, i + 3)) {
+						throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+						break;
+					}
+
+					if(tokens[i + 3].value != "{") {
+						throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+						continue;
+					}
+
+					if (!vec_check_index(tokens, i + 4)) {
+						throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 3].line));
+						continue;
+					}
+
+					if (findBraceClose(tokens, i + 4, 1) == -1) {
+						throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+						continue;
+					}
+
+					Constructor sub_modules = getSubModuleTree(code, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
+					sub_modules.setName(tokens[i + 2].value);
+					root.addProperty(sub_modules);
+					root.addProperty("export", "1");
 				}
 			}
 			else if (tokens[i].value == "module") {
+				if (!vec_check_index(tokens, i + 1)) {
+					throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i].line));
+					break;
+				}
 
+				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if (!vec_check_index(tokens, i + 2)) {
+					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+					break;
+				}
+
+				if (tokens[i + 2].value != "{") {
+					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if (!vec_check_index(tokens, i + 3)) {
+					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 2].line));
+					continue;
+				}
+
+				if (findBraceClose(tokens, i + 3, 1) == -1) {
+					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+					continue;
+				}
+
+				Constructor sub_modules = getSubModuleTree(code, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
+				sub_modules.setName(tokens[i + 2].value);
+				root.addProperty(sub_modules);
+				root.addProperty("export", "0");
+			}
+		}
+
+		return root;
+	}
+
+	Constructor SlentCompiler::getSubModuleTree(string code, Scope scope) {
+		Constructor root = Constructor();
+		root.setName("sub_root");
+		vector<Token> tokens = getPreprocessorTokens(code);
+		for (int i = 0; i < tokens.size(); i++) {
+			if (tokens[i].value == "export") {
+				if (!vec_check_index(tokens, i + 1)) {
+					throwCompileMessage(CompileMessage(SL0028, currentFileName, tokens[i].line));
+					break;
+				}
+
+				if (tokens[i + 1].value != "module") {
+					if (!vec_check_index(tokens, i + 2)) {
+						throwCompileMessage(CompileMessage(SL0029, currentFileName, tokens[i + 1].line));
+						break;
+					}
+
+					if (tokens[i + 2].type != TokenType::IDENTIFIER) {
+						throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 2].line));
+						continue;
+					}
+
+					if (!vec_check_index(tokens, i + 3)) {
+						throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+						break;
+					}
+
+					if (tokens[i + 3].value != "{") {
+						throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+						continue;
+					}
+
+					if (!vec_check_index(tokens, i + 4)) {
+						throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 3].line));
+						continue;
+					}
+
+					if (findBraceClose(tokens, i + 4, 1) == -1) {
+						throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+						continue;
+					}
+
+					Constructor sub_modules = getSubModuleTree(code, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
+					sub_modules.setName(tokens[i + 2].value);
+					root.addProperty(sub_modules);
+					root.addProperty("export", "1");
+				}
+			}
+			else if (tokens[i].value == "module") {
+				if (!vec_check_index(tokens, i + 1)) {
+					throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i].line));
+					break;
+				}
+
+				if (tokens[i + 1].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if (!vec_check_index(tokens, i + 2)) {
+					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+					break;
+				}
+
+				if (tokens[i + 2].value != "{") {
+					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+					continue;
+				}
+
+				if (!vec_check_index(tokens, i + 3)) {
+					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 2].line));
+					continue;
+				}
+
+				if (findBraceClose(tokens, i + 3, 1) == -1) {
+					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+					continue;
+				}
+
+				Constructor sub_modules = getSubModuleTree(code, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
+				sub_modules.setName(tokens[i + 2].value);
+				root.addProperty(sub_modules);
+				root.addProperty("export", "0");
 			}
 		}
 
@@ -1176,7 +1329,8 @@ namespace Slent {
 			string no_comment_code = regex_replace(code, commentRegex, "");
 			no_comment_codes.push_back(no_comment_code);
 
-			Constructor sub_module_tree = getModuleTree(code);
+			Constructor module_tree_file = getModuleTree(code);
+			module_tree = get<Constructor>(Constructor::merge(module_tree, module_tree_file));
 		}
 
 		for (auto& no_comment_code : no_comment_codes) {
