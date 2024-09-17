@@ -57,7 +57,7 @@ namespace Slent {
 	vector<Token> SlentCompiler::getPreprocessorTokens(string code) {
 		vector<Token> tokens;
 
-		regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,|~|#)");
+		regex tokenRegex(R"([a-zA-Z_][a-zA-Z0-9_]*!|->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|::|:|;|<|>|\.|,|~|#)");
 		// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 		smatch match;
 
@@ -67,6 +67,9 @@ namespace Slent {
 				string matched = match.str();
 				if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
 					tokens.push_back(Token(TokenType::KEYWORD, matched, i));
+				}
+				else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*!"))) {
+					tokens.push_back(Token(TokenType::MACRO, matched, i));
 				}
 				else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
 					tokens.push_back(Token(TokenType::IDENTIFIER, matched, i));
@@ -80,7 +83,7 @@ namespace Slent {
 				else if (regex_match(matched, regex(R"(==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 				}
-				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,|~|#)"))) {
+				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|::|:|;|<|>|\.|\,|~|#)"))) {
 					tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 				}
 				else {
@@ -93,110 +96,255 @@ namespace Slent {
 		return tokens;
 	}
 
-	string SlentCompiler::preprocess(Constructor module_tree, string code) {
-		string processed_code = "";
-
-		vector<string> lines = split(code, '\n');
+	string SlentCompiler::preprocess(Constructor module_tree, string code, vector<Macro> macros) {
 		vector<Token> tokens = getPreprocessorTokens(code);
-		vector<Macro> macros;
+		vector<string> imports = getImports(module_tree, tokens);
+		string processed_code = runMacros(code, macros);
+
+		return processed_code;
+	}
+
+	vector<string> SlentCompiler::getImports(Constructor module_tree, vector<Token> tokens) {
+		vector<string> imports;
+
 		for (int i = 0; i < tokens.size(); i++) {
-			if ((tokens[i].value == "$") && (!vec_check_index(tokens, i + 1))) {
-				throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i + 1].line));
-				break;
-			}
-
-			if (!vec_check_index(tokens, i + 1)) break;
-
-			if ((tokens[i].value == "$") && (tokens[i + 1].value == "macro_def")) {
-				if (tokens[i - 1].line == tokens[i].line) {
-					throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i].line));
-					continue;
-				}
-
-				Macro macro = Macro();
-				macro.name = tokens[i + 1].value;
-
-				if (!vec_check_index(tokens, i + 2)) {
-					throwCompileMessage(CompileMessage(SL0002, currentFileName, tokens[i].line));
+			if (tokens[i].value == "import") {
+				if (!vec_check_index(tokens, i + 1)) {
+					throwCompileMessage(CompileMessage(SL0006, currentFileName, tokens[i + 5].line));
 					break;
 				}
-				if ((tokens[i + 1].line != tokens[i + 2].line) || (tokens[i + 2].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(SL0002, currentFileName, tokens[i].line));
-					continue;
-				}
 
+				string import_temp = "";
 
-				if (!vec_check_index(tokens, i + 5)) {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
-					break;
-				}
-				if (tokens[i + 3].value != "{") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-				if (tokens[i + 4].value != "$") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 3].line));
-					continue;
-				}
-
-				if (tokens[i + 5].value == "(") {
-					i = i + 5;
-				}
-				else if (tokens[i + 5].value == "macro_module") {
-					if (!vec_check_index(tokens, i + 6)) {
-						throwCompileMessage(CompileMessage(SL0006, currentFileName, tokens[i + 5].line));
-						break;
-					}
-					macro.module_info = tokens[i + 6].value;
-
-					if (!vec_check_index(tokens, i + 8)) {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
-						break;
-					}
-
-					if (tokens[i + 7].value != "$") {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
-						continue;
-					}
-
-					if (tokens[i + 8].value == "(") {
-						i = i + 8;
+				Constructor current_depth_module = module_tree;
+				int j = i + 1;
+				while (true) {
+					if (tokens[j].type == TokenType::IDENTIFIER) {
+						if (!current_depth_module.propertyExist(tokens[j].value)) {
+							throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+							goto err_1;
+						}
+						current_depth_module = current_depth_module.getProperty(tokens[j].value);
+						import_temp.append(tokens[j].value.append("::"));
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 7].line));
-						continue;
+						throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+						goto err_1;
 					}
+					if (!vec_check_index(tokens, j + 1)) {
+						throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[j + 1].line));
+						goto err_1;
+					}
+					if (tokens[j + 1].value != "::") {
+						if (tokens[j + 1].value != ";") {
+							throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[j + 1].line));
+							goto err_1;
+						}
+						j = j + 1;
+						break;
+					}
+
+					j = j + 2;
 				}
-				else {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 4].line));
-					continue;
+				goto nerr_1;
+
+			err_1:
+				continue;
+			nerr_1:
+
+				imports.push_back(import_temp);
+				i = j;
+				continue;
+			}
+		}
+		
+		return imports;
+	}
+
+	vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> codes) {
+		vector<Macro> macros;
+		for (auto& code : codes) {
+			vector<string> lines = split(code, '\n');
+			vector<Token> tokens = getPreprocessorTokens(code);
+
+			for (int i = 0; i < tokens.size(); i++) {
+				if ((tokens[i].value == "$") && (!vec_check_index(tokens, i + 1))) {
+					throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i + 1].line));
+					break;
 				}
 
-				for (int j = i + 1; j < findBracketClose(tokens, i + 4, 1); j++) {
-					if (tokens[j].value == "~") {
-						if (!vec_check_index(tokens, j + 1)) {
-							throwCompileMessage(CompileMessage(SL0026, currentFileName, tokens[j].line));
+				if (!vec_check_index(tokens, i + 1)) break;
+
+				if ((tokens[i].value == "$") && (tokens[i + 1].value == "macro_def")) {
+					if (tokens[i - 1].line == tokens[i].line) {
+						throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i].line));
+						continue;
+					}
+
+					Macro macro = Macro();
+					macro.name = tokens[i + 1].value;
+
+					if (!vec_check_index(tokens, i + 2)) {
+						throwCompileMessage(CompileMessage(SL0002, currentFileName, tokens[i].line));
+						break;
+					}
+					if ((tokens[i + 1].line != tokens[i + 2].line) || (tokens[i + 2].type != TokenType::IDENTIFIER)) {
+						throwCompileMessage(CompileMessage(SL0002, currentFileName, tokens[i].line));
+						continue;
+					}
+
+
+					if (!vec_check_index(tokens, i + 5)) {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+						break;
+					}
+					if (tokens[i + 3].value != "{") {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+						continue;
+					}
+					if (tokens[i + 4].value != "$") {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 3].line));
+						continue;
+					}
+
+					if (tokens[i + 5].value == "(") {
+						i = i + 5;
+					}
+					else if (tokens[i + 5].value == "macro_module") {
+						if (!vec_check_index(tokens, i + 6)) {
+							throwCompileMessage(CompileMessage(SL0006, currentFileName, tokens[i + 5].line));
 							break;
 						}
-						
-						if (tokens[j + 1].type == TokenType::IDENTIFIER) {
-							if (tokens[j + 1].value == "null") {
-								throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j + 1].line));
+
+						Constructor current_depth_module = module_tree;
+						int j = i + 6;
+						while (true) {
+							if (tokens[j].type == TokenType::IDENTIFIER) {
+								if (!current_depth_module.propertyExist(tokens[j].value)) {
+									throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+									goto err_2;
+								}
+								current_depth_module = current_depth_module.getProperty(tokens[j].value);
+								macro.macro_module.append(tokens[j].value.append("::"));
 							}
 							else {
-								macro.parameters.push_back(tokens[j + 1].value);
+								throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+								goto err_2;
 							}
-							
-							if (!vec_check_index(tokens, j + 2)) {
+							if (!vec_check_index(tokens, j + 1)) {
+								j = j + 1;
+								break;
+							}
+							if (tokens[j + 1].value != "::") {
+								if (tokens[j].line == tokens[j + 1].line) {
+									throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j + 1].line));
+									goto err_2;
+								}
+								j = j + 1;
+								break;
+							}
+
+							j = j + 2;
+						}
+						goto nerr_2;
+
+					err_2:
+						continue;
+					nerr_2:
+
+						if (!vec_check_index(tokens, j + 1)) {
+							throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+							break;
+						}
+
+						if (tokens[j].value != "$") {
+							throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+							continue;
+						}
+
+						if (tokens[j + 1].value == "(") {
+							i = j + 1;
+						}
+						else {
+							throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 7].line));
+							continue;
+						}
+					}
+					else {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 4].line));
+						continue;
+					}
+
+					for (int j = i + 1; j < findBracketClose(tokens, i + 4, 1); j++) {
+						if (tokens[j].value == "~") {
+							if (!vec_check_index(tokens, j + 1)) {
+								throwCompileMessage(CompileMessage(SL0026, currentFileName, tokens[j].line));
+								break;
+							}
+
+							if (tokens[j + 1].type == TokenType::IDENTIFIER) {
+								if (tokens[j + 1].value == "null") {
+									throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j + 1].line));
+								}
+								else {
+									macro.parameters.push_back(tokens[j + 1].value);
+								}
+
+								if (!vec_check_index(tokens, j + 2)) {
+									throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j].line));
+									break;
+								}
+
+								if (tokens[j + 2].value == ",") {
+									j = j + 2;
+									continue;
+								}
+								else if (tokens[j + 2].value == ")") {
+									break;
+								}
+								else {
+									throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j].line));
+									j = t_find_next(tokens, j + 2, vector<string> {","});
+									continue;
+								}
+								continue;
+							}
+							else if (tokens[j + 1].value == ")") {
+								macro.parameters.push_back("~");
+								break;
+							}
+							else {
+								throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j].line));
+
+								if (!vec_check_index(tokens, j + 2)) {
+									throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j + 1].line));
+									break;
+								}
+
+								if (tokens[j + 2].value == ",") {
+									j = j + 2;
+									continue;
+								}
+								else {
+									throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j + 1].line));
+									j = t_find_next(tokens, j + 2, vector<string> {","});
+									continue;
+								}
+							}
+						}
+						else if (tokens[j].type == TokenType::IDENTIFIER) {
+							macro.parameters.push_back(tokens[j].value);
+
+							if (!vec_check_index(tokens, j + 1)) {
 								throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j].line));
 								break;
 							}
 
-							if (tokens[j + 2].value == ",") {
-								j = j + 2;
+							if (tokens[j + 1].value == ",") {
+								j = j + 1;
 								continue;
 							}
-							else if (tokens[j + 2].value == ")") {
+							else if (tokens[j + 1].value == ")") {
 								break;
 							}
 							else {
@@ -206,121 +354,160 @@ namespace Slent {
 							}
 							continue;
 						}
-						else if (tokens[j + 1].value == ")") {
-							macro.parameters.push_back("~");
-							break;
-						}
 						else {
 							throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j].line));
-
-							if (!vec_check_index(tokens, j + 2)) {
-								throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j + 1].line));
-								break;
-							}
-
-							if (tokens[j + 2].value == ",") {
-								j = j + 2;
-								continue;
-							}
-							else {
-								throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j + 1].line));
-								j = t_find_next(tokens, j + 2, vector<string> {","});
-								continue;
-							}
 						}
 					}
-					else if (tokens[j].type == TokenType::IDENTIFIER) {
-						macro.parameters.push_back(tokens[j].value);
+					i = findBracketClose(tokens, i + 3, 1) + 1;
 
-						if (!vec_check_index(tokens, j + 1)) {
-							throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j].line));
-							break;
-						}
+					if (!vec_check_index(tokens, i)) {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i - 1].line));
+						break;
+					}
 
-						if (tokens[j + 1].value == ",") {
-							j = j + 1;
-							continue;
-						}
-						else if (tokens[j + 1].value == ")") {
-							break;
-						}
-						else {
-							throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j].line));
-							j = t_find_next(tokens, j + 2, vector<string> {","});
-							continue;
-						}
+					if (tokens[i].value != "=>") {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i - 1].line));
 						continue;
 					}
-					else {
-						throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j].line));
+					if (tokens[i + 1].value != "{") {
+						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i].line));
+						continue;
 					}
-				}
-				i = findBracketClose(tokens, i + 3, 1) + 1;
 
-				if (!vec_check_index(tokens, i)) {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i - 1].line));
-					break;
-				}
+					int start_line = tokens[i + 2].line;
+					int end_line = tokens[findBraceClose(tokens, i + 1, 1)].line;
 
-				if (tokens[i].value != "=>") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i - 1].line));
-					continue;
-				}
-				if (tokens[i + 1].value != "{") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i].line));
-					continue;
-				}
+					int start_brace_index = lines[start_line].find("{", lines[start_line].find("=>"));
 
-				int start_line = tokens[i + 2].line;
-				int end_line = tokens[findBraceClose(tokens, i + 1, 1)].line;
+					if (start_line == tokens[i + 1].line) {
 
-				int start_brace_index = lines[start_line].find("{", lines[start_line].find("=>"));
-				
-				if (start_line == tokens[i + 1].line) {
-					
-					macro.body += lines[start_line].substr(start_brace_index);
-				}
-				else {
-					macro.body += lines[start_line];
-				}
+						macro.body += lines[start_line].substr(start_brace_index);
+					}
+					else {
+						macro.body += lines[start_line];
+					}
 
-				for (int l = start_line + 1; l < end_line; l++) {
-					macro.body += lines[l];
-				}
+					for (int l = start_line + 1; l < end_line; l++) {
+						macro.body += lines[l];
+					}
 
-				if (end_line == tokens[findBraceClose(tokens, i + 1, 1) + 1].line) {
-					int brace_count = 1;
-					for (int l = start_line; l < lines.size(); l++) {
-						for (int j = (l == start_line) ? (start_brace_index + 1) : 0; j < lines[l].size(); j++) {
-							if (lines[l][j] == '{') brace_count++;
-							else if (lines[l][j] == '}') brace_count--;
+					if (end_line == tokens[findBraceClose(tokens, i + 1, 1) + 1].line) {
+						int brace_count = 1;
+						for (int l = start_line; l < lines.size(); l++) {
+							for (int j = (l == start_line) ? (start_brace_index + 1) : 0; j < lines[l].size(); j++) {
+								if (lines[l][j] == '{') brace_count++;
+								else if (lines[l][j] == '}') brace_count--;
 
-							if (brace_count == 0) {
-								if (l != end_line) {
-									cerr << "! Compiler internal error (code: SC0001)" << endl;
-									exit(1);
+								if (brace_count == 0) {
+									if (l != end_line) {
+										cerr << "! Compiler internal error (code: SC0001)" << endl;
+										exit(1);
+									}
+									macro.body += lines[end_line].substr(0, j);
+									goto done;
 								}
-								macro.body += lines[end_line].substr(0, j);
-								goto done;
 							}
 						}
 					}
-				}
-				else {
-					macro.body += lines[end_line];
-				}
+					else {
+						macro.body += lines[end_line];
+					}
 
 				done:
 
-				macros.push_back(macro);
-				continue;
+					macros.push_back(macro);
+					continue;
+				}
 			}
 		}
 
-		return processed_code;
+		return macros;
 	}
 
-	string SlentCompiler::run_macro(Macro macro, vector<string> params_val) {
+	string SlentCompiler::runMacros(string code, vector<Macro> macros) {
+		string m_code = code;
+		bool macro_exist = false;
+		do {
+			for (auto& macro : macros) {
+				int last_index = 0;
+				while (true) {
+					int index = m_code.find(macro.name + "!", last_index);
+
+					if (index == string::npos) break;
+
+					last_index = index + (macro.name + "!").size();
+
+					auto findMacroEnd = [&index, &macro, &m_code]() -> int {
+						bool bracket_started = false;
+						int brackets = 0;
+						for (int i = index + (macro.name + "!").size(); i < m_code.size(); i++) {
+							if (m_code[i] == '(') brackets++;
+							if (bracket_started && (brackets == 0)) return i;
+						}
+					};
+
+					auto getLineNum = [](string str, int index) -> int {
+						int line_num = 0;
+						for (int i = 0; i <= index; i++) {
+							if (str[i] == '\n') {
+								line_num++;
+							}
+						}
+						return line_num;
+					};
+
+					int state = -1;
+					/*
+					-1: haven't received anything
+					0: receiving param
+					1: finished receiving param and waiting for ','
+					*/
+					string param_temp = "";
+					vector<string> params_val;
+					for (int i = m_code.find('(', index) + 1; i < findMacroEnd(); i++) {
+						if (m_code[i] == ' ') {
+							if (state == 0) state = 1;
+						}
+						else if (m_code[i] == ',') {
+							if ((state == 0) || (state == 1)) {
+								params_val.push_back(param_temp);
+								param_temp = "";
+								state = -1;
+							}
+							else {
+								throwCompileMessage(CompileMessage(SL0005, currentFileName, getLineNum(m_code, i)));
+								m_code.replace(index, findMacroEnd() - index + 1, "");
+								goto err;
+							}
+						}
+						else {
+							if ((state == -1) || (state == 0)) {
+								param_temp += m_code[i];
+								state = 0;
+							}
+							else {
+								throwCompileMessage(CompileMessage(SL0023, currentFileName, getLineNum(m_code, i)));
+								m_code.replace(index, findMacroEnd() - index + 1, "");
+								goto err;
+							}
+						}
+					}
+
+					m_code.replace(index, findMacroEnd() - index + 1, runMacro(macro, params_val));
+					macro_exist = true;
+
+					goto nerr;
+				err:
+					continue;
+				nerr:
+				}
+			}
+		} while (macro_exist);
+		
+		return m_code;
+	}
+
+	string SlentCompiler::runMacro(Macro macro, vector<string> params_val) {
 		string result = macro.body;
 		for (int i = 0; i < macro.parameters.size(); i++) {
 			string target = string("#").append(macro.parameters[i]).append("#");
@@ -505,16 +692,6 @@ namespace Slent {
 		}
 
 		return root;
-	}
-
-	int SlentCompiler::p_find_next(string** preprocessor_tokens, int lines, int cursor, vector<string> target) {
-		for (int i = cursor; i < lines; i++) {
-			auto result = find(target.begin(), target.end(), preprocessor_tokens[i][0]);
-			if (result != target.end()) {
-				return i;
-			}
-		}
-		return -1;
 	}
 
 	int SlentCompiler::t_find_next(vector<Token> tokens, int cursor, vector<string> target) {
@@ -1324,6 +1501,7 @@ namespace Slent {
 		Constructor module_tree;
 
 		for (auto& [filename, code] : code_files) {
+			currentFileName = filename;
 			cout << "source code:" << endl << code << endl << endl;
 			regex commentRegex("//.*");
 			string no_comment_code = regex_replace(code, commentRegex, "");
@@ -1333,8 +1511,11 @@ namespace Slent {
 			module_tree = get<Constructor>(Constructor::merge(module_tree, module_tree_file));
 		}
 
-		for (auto& no_comment_code : no_comment_codes) {
-			string preprocessed_code = preprocess(module_tree, no_comment_code);
+		vector<Macro> macros = getMacros(module_tree, no_comment_codes);
+
+		for (int i = 0; i < no_comment_codes.size(); i++) {
+			currentFileName = get<0>(code_files[i]);
+			string preprocessed_code = preprocess(module_tree, no_comment_codes[i], macros);
 			cout << "preprocessed_code:" << endl << preprocessed_code << endl << endl;
 		}
 	}
@@ -1351,8 +1532,8 @@ namespace Slent {
 		this->stack_size = size;
 	}
 
-	void MemoryManager::set_heap_size(int size) {
-		this->heap_size = size;
+	void MemoryManager::set_max_heap_size(int size) {
+		this->max_heap_size = size;
 	}
 
 	void MemoryManager::start() {
@@ -1360,7 +1541,6 @@ namespace Slent {
 		for (int i = 0; i < heap_size; i++) {
 			heap_memory[i] = nullptr;
 		}
-		heap_usage = (bool*)calloc(heap_size, sizeof(bool));
 	}
 
 	template <typename T>
@@ -1391,15 +1571,15 @@ namespace Slent {
 		return make_tuple(*((T*)heap_memory[address]), true);
 	}
 
-	void SlentVirtualMachine::set_stack_size(int size) {
+	void SlentVM::set_stack_size(int size) {
 		memory_manager->set_stack_size(size);
 	}
 
-	void SlentVirtualMachine::set_heap_size(int size) {
-		memory_manager->set_heap_size(size);
+	void SlentVM::set_max_heap_size(int size) {
+		memory_manager->set_max_heap_size(size);
 	}
 
-	void SlentVirtualMachine::Run(string bytecode) {
+	void SlentVM::Run(string bytecode) {
 		memory_manager->start();
 	}
 }

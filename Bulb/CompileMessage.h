@@ -47,6 +47,7 @@
 #define SL0030 MessageType::ERROR, "Module naming rule not followed."
 #define SL0031 MessageType::ERROR, "Missing module body."
 #define SL0032 MessageType::ERROR, "Missing \'}\'."
+#define SL0033 MessageType::ERROR, "Module not found."
 
 
 

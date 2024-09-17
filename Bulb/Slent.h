@@ -14,7 +14,8 @@ namespace Slent {
         CONSTANT,
         LITERAL,
         OPERATOR,
-        SPECIAL_SYMBOL
+        SPECIAL_SYMBOL,
+        MACRO
     };
 
     struct Token {
@@ -157,7 +158,7 @@ namespace Slent {
     const int WHITE_LIGHT = 97;
 
     struct Macro {
-        std::string module_info;
+        std::string macro_module;
 
         std::string name;
         std::vector<std::string> parameters;
@@ -165,14 +166,30 @@ namespace Slent {
         std::string body;
     };
 
+    struct CompilerSetting {
+        int max_macro_recursion_depth;
+    };
+
     class SlentCompiler {
+    public:
+        SlentCompiler() {
+
+        }
+
+        SlentCompiler(CompilerSetting setting) {
+
+        }
+
     private:
         std::vector<std::tuple<std::string, std::string>> code_files;
         std::string currentFileName;
 
         std::vector<Token> getPreprocessorTokens(std::string code);
-        std::string preprocess(Constructor module_tree, std::string code);
-        std::string run_macro(Macro macro, std::vector<std::string> params);
+        std::string preprocess(Constructor module_tree, std::string code, std::vector<Macro> macros);
+        std::vector<std::string> getImports(Constructor module_tree, std::vector<Token> tokens);
+        vector<Macro> getMacros(Constructor module_tree, std::vector<std::string> codes);
+        std::string runMacros(std::string code, std::vector<Macro> macros);
+        std::string runMacro(Macro macro, std::vector<std::string> params);
 
         Constructor getModuleTree(std::string code);
         Constructor getSubModuleTree(std::string code, Scope scope);
@@ -218,11 +235,10 @@ namespace Slent {
     private:
         int stack_size;
         int heap_size;
+        int max_heap_size;
         int current_stack_index;
         void** stack_memory;
         void** heap_memory;
-        
-        bool* heap_usage;
 
         address find_free_address();
 
@@ -234,7 +250,7 @@ namespace Slent {
         }
 
         void set_stack_size(int size);
-        void set_heap_size(int size);
+        void set_max_heap_size(int size);
         void start();
         template <typename T>
         int allocate_heap();
@@ -245,17 +261,23 @@ namespace Slent {
         std::tuple<T, bool> read_heap(int address);
     };
 
-    class SlentVirtualMachine {
+    struct VMSetting {
+        int stack_size;
+        int max_heap_size;
+    };
+
+    class SlentVM {
     private:
         MemoryManager* memory_manager;
+        VMSetting vm_setting;
         
     public:
-        SlentVirtualMachine() {
+        SlentVM() {
             memory_manager = new MemoryManager;
         }
 
         void set_stack_size(int size);
-        void set_heap_size(int size);
+        void set_max_heap_size(int size);
         void Run(std::string bytecode);
     };
 }
