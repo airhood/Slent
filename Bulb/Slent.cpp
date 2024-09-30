@@ -80,7 +80,7 @@ namespace Slent {
 				else if (regex_match(matched, regex("\"[^\"]*\""))) {
 					tokens.push_back(Token(TokenType::LITERAL, matched, i));
 				}
-				else if (regex_match(matched, regex(R"(==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
+				else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 				}
 				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|::|:|;|<|>|\.|\,|~|#)"))) {
@@ -727,7 +727,7 @@ namespace Slent {
 				else if (regex_match(matched, regex("\"[^\"]*\""))) {
 					tokens.push_back(Token(TokenType::LITERAL, matched, i));
 				}
-				else if (regex_match(matched, regex(R"(==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
+				else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 					tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 				}
 				else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,)"))) {

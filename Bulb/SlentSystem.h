@@ -7,5 +7,6 @@ namespace Slent {
 
 	public:
 		void Run(int argc, char** argv);
+		void OpenFiles();
 	};
 }

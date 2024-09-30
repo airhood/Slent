@@ -36,4 +36,8 @@ namespace Slent {
 			return;
 		}
 	}
+
+	void SlentSystem::OpenFiles() {
+
+	}
 }
