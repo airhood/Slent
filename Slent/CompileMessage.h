@@ -48,6 +48,9 @@
 #define SL0031 MessageType::ERROR, "Missing module body."
 #define SL0032 MessageType::ERROR, "Missing \'}\'."
 #define SL0033 MessageType::ERROR, "Module not found."
+#define SL0034 MessageType::ERROR, "Implicitly typed variable must be initialized."
+#define SL0035 MessageType::ERROR, "Unexpected global keyword."
+#define SL0036 MessageType::ERROR, "Access modifier missing."
 
 
 

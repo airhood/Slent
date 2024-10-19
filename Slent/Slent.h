@@ -49,6 +49,7 @@ namespace Slent {
         // Date Type
         "void",
         "null",
+
         "object",
         "bool",
         "char",
@@ -62,6 +63,7 @@ namespace Slent {
         "uint64",
         "float32",
         "float64",
+        "decimal",
         "string",
         
         // Function Return Type
@@ -182,6 +184,7 @@ namespace Slent {
         int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
         std::vector<Token> lexer(std::string code);
         Constructor parser(std::vector<Token> tokens);
+        std::tuple<Constructor, bool> getFunction(std::vector<Token> tokens, Scope scope);
         std::tuple<Constructor, int, bool> getClass(std::vector<Token> tokens, int cursor);
         Constructor getClassMembers(std::vector<Token> tokens, Scope scope);
         std::vector<Constructor> getClassConstructors(std::vector<Token> tokens, Scope scope);
