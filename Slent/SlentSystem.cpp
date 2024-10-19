@@ -37,11 +37,7 @@ void SlentSystem::Run(int argc, char** argv) {
 
 void SlentSystem::LoadFiles() {
 	currentPath = filesystem::current_path();
-	LoadConfigFile();
-	LoadSourceFiles();
-}
 
-void SlentSystem::LoadConfigFile() {
 	filesystem::path configFilePath;
 	int configFileCount = 0; // .config 파일 수 카운트
 
@@ -61,7 +57,10 @@ void SlentSystem::LoadConfigFile() {
 		cout << colorString("No config file with .config extension found.", RED) << endl;
 		return;
 	}
+	LoadConfigFile(configFilePath);
+}
 
+void SlentSystem::LoadConfigFile(filesystem::path configFilePath) {
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLError error = doc.LoadFile(configFilePath.string().c_str());
 
@@ -70,7 +69,7 @@ void SlentSystem::LoadConfigFile() {
 		return;
 	}
 
-	tinyxml2::XMLElement* root = doc.FirstChildElement("SlentProject");
+	tinyxml2::XMLElement* root = doc.FirstChildElement("Slent");
 	if (root) {
 		tinyxml2::XMLElement* compileItems = root->FirstChildElement("CompileItems");
 		if (compileItems) {
@@ -79,43 +78,49 @@ void SlentSystem::LoadConfigFile() {
 				compile = compile->NextSiblingElement("Compile")) {
 				const char* path = compile->Attribute("path");
 				if (path) {
-					filePaths.push_back(path);
+					filesystem::path sourceFilePath = currentPath / "src" / path;
+					LoadSourceFile(sourceFilePath);
 				}
 			}
 		}
-		else {
-			cout << colorString("<CompileItems> doesn't exist.", RED) << endl;
+
+		tinyxml2::XMLElement* dependencies = root->FirstChildElement("Dependencies");
+		if (dependencies) {
+			for (tinyxml2::XMLElement* library = dependencies->FirstChildElement("Library");
+				library != nullptr;
+				library = library->NextSiblingElement("Library")) {
+				const char* path = library->Attribute("path");
+				if (path) {
+					filesystem::path libraryConfigFilePath = currentPath / "lib" / path;
+					LoadConfigFile(libraryConfigFilePath);
+				}
+			}
 		}
 	}
 	else {
-		cout << colorString("<SlentProject> missing.", RED) << endl;
+		cout << colorString("<Slent> missing.", RED) << endl;
 	}
 }
 
-
-void SlentSystem::LoadSourceFiles() {
-	for (const auto& relativePath : filePaths) {
-		filesystem::path fullPath = currentPath / relativePath;
-
-		if (filesystem::exists(fullPath)) {
-			string fileName = fullPath.filename().string();
-			ifstream file(fullPath);
-			if (file.is_open()) {
-				string fullContent;
-				string line;
-				while (getline(file, line)) {
-					fullContent += line;
-				}
-				file.close();
-				
-				compiler->AddFile(fileName, fullContent);
+void SlentSystem::LoadSourceFile(filesystem::path sourceFilePath) {
+	if (filesystem::exists(sourceFilePath)) {
+		string fileName = sourceFilePath.filename().string();
+		ifstream file(sourceFilePath);
+		if (file.is_open()) {
+			string fullContent;
+			string line;
+			while (getline(file, line)) {
+				fullContent += line;
 			}
-			else {
-				cout << colorString("Cannot open file named '" + fileName + "'.", RED) << endl;
-			}
+			file.close();
+
+			compiler->AddFile(fileName, fullContent);
 		}
 		else {
-			cout << colorString("File named '" + fullPath.filename().string() + "' does not exist.", RED) << endl;
+			cout << colorString("Cannot open file named '" + fileName + "'.", RED) << endl;
 		}
+	}
+	else {
+		cout << colorString("File named '" + sourceFilePath.filename().string() + "' does not exist.", RED) << endl;
 	}
 }

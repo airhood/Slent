@@ -184,14 +184,15 @@ namespace Slent {
         int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
         std::vector<Token> lexer(std::string code);
         Constructor parser(std::vector<Token> tokens);
-        std::tuple<Constructor, bool> getFunction(std::vector<Token> tokens, Scope scope);
+        std::tuple<Constructor, bool> getFunction(std::vector<Token> tokens, Scope scope, bool includeBody);
         std::tuple<Constructor, int, bool> getClass(std::vector<Token> tokens, int cursor);
         Constructor getClassMembers(std::vector<Token> tokens, Scope scope);
         std::vector<Constructor> getClassConstructors(std::vector<Token> tokens, Scope scope);
         std::vector<Constructor> getClassVariables(std::vector<Token> tokens, Scope scope);
-        std::vector<Constructor> getClassFunctions(std::vector<Token> tokens, Scope scope);
+        std::vector<Constructor> getClassFunctions(std::vector<Token> tokens, Scope scope, bool includeBody);
         Constructor getFunctionBody(std::vector<Token> tokens, Scope scope);
         std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth);
+        std::tuple<Constructor, bool> getExternalFunction(std::vector<Token> tokens, int cursor, bool isDynamic);
         std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
         bool check_type(std::string type);
         int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);

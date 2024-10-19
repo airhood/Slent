@@ -751,23 +751,58 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 			// TODO: Parse import
 			root.addProperty(import);
 		}
+		else if (tokens[i].value == "dynamic") {
+			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
+			if (!get<bool>(getExternalFunction_result)) {
+				i = findNextSemicolon(tokens, i);
+				continue;
+			}
+			Constructor external_function = get<Constructor>(getExternalFunction_result);
+			root.addProperty(external_function);
+			i = findNextSemicolon(tokens, i);
+			continue;
+		}
+		else if (tokens[i].value == "extern") {
+			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, false);
+			if (!get<bool>(getExternalFunction_result)) {
+				i = findNextSemicolon(tokens, i);
+				continue;
+			}
+			Constructor external_function = get<Constructor>(getExternalFunction_result);
+			root.addProperty(external_function);
+			i = findNextSemicolon(tokens, i);
+			continue;
+		}
 		else if (tokens[i].value == "func") {
 			int functionBodyEnd = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
+
+			string access_modifier = "";
 
 			if (vec_check_index(tokens, functionBodyEnd + 2)) {
 				if (tokens[functionBodyEnd + 1].value == ":") {
 					if (tokens[functionBodyEnd + 2].value == "public") {
-
+						access_modifier = "public";
+					}
+					else if (tokens[functionBodyEnd + 2].value == "protected") {
+						access_modifier = "protected";
+					}
+					else if (tokens[functionBodyEnd + 2].value == "private") {
+						access_modifier = "private";
+					}
+					else {
+						throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[functionBodyEnd + 2].line));
+						continue;
 					}
 				}
 			}
 
-			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, findBraceClose(tokens, findBraceClose(tokens, i, -1), 0) - 1));
+			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, findBraceClose(tokens, findBraceClose(tokens, i, -1), 0) - 1), true);
 			if (!get<bool>(getFunction_result)) {
 				i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 				continue;
 			}
 			Constructor function = get<Constructor>(getFunction_result);
+			function.addProperty("access_modifier", access_modifier);
 			root.addProperty(function);
 			i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 			continue;
@@ -793,7 +828,7 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 	return root;
 }
 
-tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope scope) {
+tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope scope, bool includeBody) {
 	int i = scope.start;
 	if (tokens[i].value == "func") {
 		if ((i + 1) > scope.end) {
@@ -913,8 +948,10 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 
 	return_type_done:
 
-		Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
-		function.addProperty(function_body);
+		if (includeBody) {
+			Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
+			function.addProperty(function_body);
+		}
 
 		return make_tuple(function, true);
 	}
@@ -951,7 +988,7 @@ Constructor SlentCompiler::getClassMembers(vector<Token> tokens, Scope scope) {
 	for (int i = 0; i < class_variables.size(); i++) {
 		classMembers.addProperty(class_variables[i]);
 	}
-	vector<Constructor> class_functions = getClassFunctions(tokens, scope);
+	vector<Constructor> class_functions = getClassFunctions(tokens, scope, true);
 	for (int i = 0; i < class_functions.size(); i++) {
 		classMembers.addProperty(class_functions[i]);
 	}
@@ -1192,10 +1229,32 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 	return class_variables;
 }
 
-vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope) {
+vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope, bool includeBody) {
 	vector<Constructor> class_functions;
 	for (int i = scope.start; i <= scope.end; i++) {
-		if (tokens[i].value == "func") {
+		if (tokens[i].value == "dynamic") {
+			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
+			if (!get<bool>(getExternalFunction_result)) {
+				i = findNextSemicolon(tokens, i);
+				continue;
+			}
+			Constructor external_function = get<Constructor>(getExternalFunction_result);
+			class_functions.push_back(external_function);
+			i = findNextSemicolon(tokens, i);
+			continue;
+		}
+		else if (tokens[i].value == "extern") {
+			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, false);
+			if (!get<bool>(getExternalFunction_result)) {
+				i = findNextSemicolon(tokens, i);
+				continue;
+			}
+			Constructor external_function = get<Constructor>(getExternalFunction_result);
+			class_functions.push_back(external_function);
+			i = findNextSemicolon(tokens, i);
+			continue;
+		}
+		else if (tokens[i].value == "func") {
 			if ((i + 1) > scope.end) {
 				throwCompileMessage(CompileMessage(SL0019, currentFileName, tokens[i].line));
 				continue;
@@ -1315,8 +1374,10 @@ vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope
 
 		return_type_done:
 
-			Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
-			function.addProperty(function_body);
+			if (includeBody) {
+				Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
+				function.addProperty(function_body);
+			}
 
 			class_functions.push_back(function);
 		}
@@ -1733,6 +1794,92 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 	}
 
 	return make_tuple(expression, true);
+}
+
+tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens, int cursor, bool isDynamic) {
+	if (isDynamic) {
+		if (tokens[cursor].value == "dynamic") {
+			if (!vec_check_index(tokens, cursor + 1)) {
+				throwCompileMessage(CompileMessage(SL0037, currentFileName, tokens[cursor].line));
+				return make_tuple(Constructor(), false);
+			}
+
+			if (tokens[cursor + 1].value == "extern") {
+				if (!vec_check_index(tokens, cursor + 2)) {
+					throwCompileMessage(CompileMessage(SL0038, currentFileName, tokens[cursor + 1].line));
+					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 1].line));
+					return make_tuple(Constructor(), false);
+				}
+
+				if (tokens[cursor + 2].type == TokenType::LITERAL) {
+					if (!vec_check_index(tokens, cursor + 3)) {
+						throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 3].line));
+						return make_tuple(Constructor(), false);
+					}
+
+					if (tokens[cursor + 3].value == "func") {
+						tuple<Constructor, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 3, findNextSemicolon(tokens, cursor + 3)), false);
+						Constructor external_function = get<Constructor>(externalFunction_result);
+						external_function.addProperty("extern", tokens[cursor + 2].value);
+						return make_tuple(external_function, true);
+					}
+					else {
+						throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 3].line));
+						return make_tuple(Constructor(), false);
+					}
+				}
+				else if (tokens[cursor + 2].value == "func") {
+					tuple<Constructor, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 2, findNextSemicolon(tokens, cursor + 2)), false);
+					Constructor external_function = get<Constructor>(externalFunction_result);
+					external_function.addProperty("extern", "");
+					return make_tuple(external_function, true);
+				}
+				else {
+					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 2].line));
+					return make_tuple(Constructor(), false);
+				}
+			}
+			else {
+				throwCompileMessage(CompileMessage(SL0037, currentFileName, tokens[cursor + 1].line));
+				return make_tuple(Constructor(), false);
+			}
+		}
+	}
+	else {
+		if (tokens[cursor].value == "extern") {
+			if (!vec_check_index(tokens, cursor + 1)) {
+				throwCompileMessage(CompileMessage(SL0038, currentFileName, tokens[cursor].line));
+				throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor].line));
+				return make_tuple(Constructor(), false);
+			}
+
+			if (tokens[cursor + 1].type == TokenType::LITERAL) {
+				if (!vec_check_index(tokens, cursor + 2)) {
+					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 2].line));
+					return make_tuple(Constructor(), false);
+				}
+
+				if (tokens[cursor + 2].value == "func") {
+					tuple<Constructor, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 2, findNextSemicolon(tokens, cursor + 2)), false);
+					Constructor external_function = get<Constructor>(externalFunction_result);
+					external_function.addProperty("extern", tokens[cursor + 1].value);
+					return make_tuple(external_function, true);
+				}
+				else {
+					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 2].line));
+					return make_tuple(Constructor(), false);
+				}
+			}
+			else if (tokens[cursor + 1].value == "func") {
+				throwCompileMessage(CompileMessage(SL0038, currentFileName, tokens[cursor + 1].line));
+				return make_tuple(Constructor(), false);
+			}
+			else {
+				throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 1].line));
+				return make_tuple(Constructor(), false);
+			}
+		}
+	}
 }
 
 vector<vector<Token>> SlentCompiler::split_token(vector<Token> tokens, Scope scope, string delimiter) {

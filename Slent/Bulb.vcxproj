@@ -169,6 +169,7 @@
     <ClInclude Include="SlentSystem.h" />
     <ClInclude Include="SlentVM.h" />
     <ClInclude Include="tinyxml2.h" />
+    <ClInclude Include="SlentSetting.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

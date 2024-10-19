@@ -19,12 +19,10 @@ namespace Slent {
 
 	private:
 		void LoadFiles();
-		void LoadConfigFile();
-		void LoadSourceFiles();
+		void LoadConfigFile(std::filesystem::path configFilePath);
+		void LoadSourceFile(std::filesystem::path sourceFilePath);
 		
 		std::filesystem::path currentPath;
-		
-		std::vector<std::string> filePaths;
 
 		SlentCompiler* compiler;
 
