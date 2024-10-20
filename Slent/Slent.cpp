@@ -776,14 +776,14 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 		else if (tokens[i].value == "func") {
 			int functionBodyEnd = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 
-			if (vec_check_index(tokens, functionBodyEnd + 2)) {
+			if (vec_check_index(tokens, functionBodyEnd + 1)) {
 				if (tokens[functionBodyEnd + 1].value == ":") {
 					throwCompileMessage(CompileMessage(SL0040, currentFileName, tokens[functionBodyEnd + 2].line));
 					continue;
 				}
 			}
 
-			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, findBraceClose(tokens, findBraceClose(tokens, i, -1), 0) - 1), true);
+			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, functionBodyEnd), true);
 			if (!get<bool>(getFunction_result)) {
 				i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 				continue;
@@ -1307,10 +1307,31 @@ vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope
 			continue;
 		}
 		else if (tokens[i].value == "func") {
-			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, findBraceClose(tokens, findBraceClose(tokens, i, -1), 0)), true);
+			int functionBodyEnd = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
+			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, functionBodyEnd), true);
 			if (get<bool>(getFunction_result)) {
 				Constructor function = get<Constructor>(getFunction_result);
 				function.setName("function_c");
+				
+				if (!vec_check_index(tokens, functionBodyEnd + 1)) {
+					if (tokens[functionBodyEnd + 1].value == ":") {
+						if (!vec_check_index(tokens, functionBodyEnd + 2)) {
+							throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[functionBodyEnd + 1].line));
+							continue;
+						}
+						
+						if (tokens[functionBodyEnd + 2].value == "public") {
+							function.addProperty("access_modifier", "public");
+						}
+						else if (tokens[functionBodyEnd + 2].value == "protected") {
+							function.addProperty("access_modifier", "protected");
+						}
+						else if (tokens[functionBodyEnd + 2].value == "private") {
+							function.addProperty("access_modifier", "private");
+						}
+					}
+				}
+
 				class_functions.push_back(function);
 			}
 		}
