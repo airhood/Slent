@@ -54,6 +54,7 @@
 #define SL0037 MessageType::ERROR, "dynamic must be used with extern function."
 #define SL0038 MessageType::ERROR, "extern load target missing."
 #define SL0039 MessageType::ERROR, "extern link target missing."
+#define SL0040 MessageType::ERROR, "Functions outside class cannot have access modifier."
 
 
 #elif COMPILER_MESSAGE_LANG == KOREAN
