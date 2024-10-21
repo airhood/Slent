@@ -12,7 +12,6 @@
 #include "CompileMessage.h"
 
 using namespace std;
-using namespace Slent;
 
 #define COMPILER_VERSION = "0.1"
 #define MAX_COMPILE_SCRIPT_VERSION = "0.1"
@@ -36,7 +35,7 @@ using namespace Slent;
 
 #define vec_check_index(vec, index) (vec.size() >= (index + 1))
 
-string Slent::colorString(string str, int color) {
+string colorString(string str, int color) {
 	return string("\033[0;").append(to_string(color)).append("m").append(str).append("\033[0m");
 }
 

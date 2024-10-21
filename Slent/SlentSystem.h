@@ -9,6 +9,8 @@
 #include <filesystem>
 #include "tinyxml2.h"
 
+#include "Slent.h"
+
 namespace Slent {
 
 	class SlentSystem {

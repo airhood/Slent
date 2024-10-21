@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include "Slent.h"
 #include "SlentSystem.h"
 
 using namespace std;

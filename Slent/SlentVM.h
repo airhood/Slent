@@ -1,18 +1,24 @@
 #pragma once
 
-#include "Slent.h"
+#include <string>
 
 namespace Slent {
 
+    enum class VM_MessageType {
+        ERROR,
+        WARNING,
+        MESSAGE
+    };
+
     struct RuntimeError {
-        MessageType type;
+        VM_MessageType type;
         std::string message;
         std::string file_name;
         int line_index;
 
         RuntimeError() = default;
 
-        RuntimeError(MessageType type, std::string message, std::string file_name, int line_index) :
+        RuntimeError(VM_MessageType type, std::string message, std::string file_name, int line_index) :
             type(type), message(message), file_name(file_name), line_index(line_index) {}
     };
 

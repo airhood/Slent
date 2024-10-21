@@ -153,7 +153,6 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Slent.cpp" />
     <ClCompile Include="SlentSystem.cpp" />
-    <ClCompile Include="SlentVM.cpp" />
     <ClCompile Include="tinyxml2.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -167,7 +166,6 @@
     <ClInclude Include="CompileMessage.h" />
     <ClInclude Include="Slent.h" />
     <ClInclude Include="SlentSystem.h" />
-    <ClInclude Include="SlentVM.h" />
     <ClInclude Include="tinyxml2.h" />
     <ClInclude Include="SlentSetting.h" />
   </ItemGroup>
