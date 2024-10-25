@@ -1,6 +1,5 @@
 #pragma once
 
-#include "SlentVM.h"
 #include <string.h>
 #include <iostream>
 #include <string>
