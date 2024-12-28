@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SlentVM", "SlentVM\SlentVM.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SlentNative_std", "SlentNative_std\SlentNative_std.vcxproj", "{ADC207E3-7B6D-4E61-90D5-73F5CB8BAC68}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SlentNative_base", "SlentNative_base\SlentNative_base.vcxproj", "{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -41,6 +43,14 @@ Global
 		{ADC207E3-7B6D-4E61-90D5-73F5CB8BAC68}.Release|x64.Build.0 = Release|x64
 		{ADC207E3-7B6D-4E61-90D5-73F5CB8BAC68}.Release|x86.ActiveCfg = Release|Win32
 		{ADC207E3-7B6D-4E61-90D5-73F5CB8BAC68}.Release|x86.Build.0 = Release|Win32
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Debug|x64.ActiveCfg = Debug|x64
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Debug|x64.Build.0 = Debug|x64
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Debug|x86.ActiveCfg = Debug|Win32
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Debug|x86.Build.0 = Debug|Win32
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Release|x64.ActiveCfg = Release|x64
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Release|x64.Build.0 = Release|x64
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Release|x86.ActiveCfg = Release|Win32
+		{D4A3C022-A72F-4CD4-8BEC-29042BE47F2C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

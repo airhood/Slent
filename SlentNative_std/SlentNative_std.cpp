@@ -39,4 +39,8 @@ extern "C" {
     SLENT_API void scanln(std::string& buffer) {
         std::getline(std::cin, buffer);
     }
+
+    SLENT_API char readChar() {
+        return std::cin.get();
+    }
 }

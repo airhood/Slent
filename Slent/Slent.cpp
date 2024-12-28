@@ -62,7 +62,10 @@ vector<Token> SlentCompiler::getPreprocessorTokens(string code) {
 	for (int i = 0; i < code_split.size(); i++) {
 		while (regex_search(code_split[i], match, tokenRegex)) {
 			string matched = match.str();
-			if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
+			if (regex_match(matched, regex("\"[^\"]*\""))) {
+				tokens.push_back(Token(TokenType::LITERAL, matched, i));
+			}
+			else if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
 				tokens.push_back(Token(TokenType::KEYWORD, matched, i));
 			}
 			else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*!"))) {
@@ -73,9 +76,6 @@ vector<Token> SlentCompiler::getPreprocessorTokens(string code) {
 			}
 			else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
 				tokens.push_back(Token(TokenType::CONSTANT, matched, i));
-			}
-			else if (regex_match(matched, regex("\"[^\"]*\""))) {
-				tokens.push_back(Token(TokenType::LITERAL, matched, i));
 			}
 			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 				tokens.push_back(Token(TokenType::OPERATOR, matched, i));
@@ -712,7 +712,10 @@ vector<Token> SlentCompiler::lexer(string code) {
 	for (int i = 0; i < code_split.size(); i++) {
 		while (regex_search(code_split[i], match, tokenRegex)) {
 			string matched = match.str();
-			if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
+			if (regex_match(matched, regex("\"[^\"]*\""))) {
+				tokens.push_back(Token(TokenType::LITERAL, matched, i));
+			}
+			else if (find(keywords.begin(), keywords.end(), matched) != keywords.end()) {
 				tokens.push_back(Token(TokenType::KEYWORD, matched, i));
 			}
 			else if (regex_match(matched, regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
@@ -720,9 +723,6 @@ vector<Token> SlentCompiler::lexer(string code) {
 			}
 			else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
 				tokens.push_back(Token(TokenType::CONSTANT, matched, i));
-			}
-			else if (regex_match(matched, regex("\"[^\"]*\""))) {
-				tokens.push_back(Token(TokenType::LITERAL, matched, i));
 			}
 			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 				tokens.push_back(Token(TokenType::OPERATOR, matched, i));

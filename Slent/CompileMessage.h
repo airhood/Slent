@@ -94,10 +94,11 @@
 #define SL0033 MessageType::ERROR, "인식되지 않은 모듈."
 #define SL0034 MessageType::ERROR, "타입 추론형 변수는 선언과 동시에 초기화되어야 합니다."
 #define SL0035 MessageType::ERROR, "올바르지 않은 글로벌 키워드."
-#define SL0036 MessageType::ERROR, "형식 한정자가 없습니다."
+#define SL0036 MessageType::ERROR, "엑세스 한정자가 없습니다."
 #define SL0037 MessageType::ERROR, "dynamic 키워드는 extern 키워드와 함께 사용해야 합니다."
 #define SL0038 MessageType::ERROR, "외부 코드 로드 대상이 필요합니다."
 #define SL0039 MessageType::ERROR, "외부 코드 링크 대상이 필요합니다."
+#define SL0040 MessageType::ERROR, "클래스 외부의 함수는 엑세스 한정자를 사용할 수 없습니다."
 
 
 #endif
