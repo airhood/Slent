@@ -39,7 +39,7 @@ std::vector<Constructor> Constructor::getProperties() const {
     return properties;
 }
 
-void Constructor::addProperty(std::string name, std::string value) {
+void Constructor::setValue(std::string name, std::string value) {
     Constructor constructor = Constructor();
     constructor.setName(name);
     Constructor value_ = Constructor();
@@ -53,7 +53,7 @@ void Constructor::addProperty(Constructor property) {
 }
 
 std::string Constructor::getValue() const {
-    return properties.at(0).getName();
+    return value;
 }
 
 std::string Constructor::toString() const {
@@ -66,7 +66,13 @@ std::string Constructor::toString() const {
         if (i != 0) {
             str.append(",");
         }
-        str.append(properties.at(i).toString());
+
+        if (value == "[object]") {
+            str.append(properties.at(i).toString());
+        }
+        else {
+            str.append(value);
+        }
     }
     str.append("}");
     return str;
@@ -79,6 +85,7 @@ std::string Constructor::toPrettyString(int depth) const {
             str.append("  ");
         }
         str.append(name);
+        str.append(": ");
         return str;
     }
     std::string str = "";
@@ -91,7 +98,13 @@ std::string Constructor::toPrettyString(int depth) const {
         if (i != 0) {
             str.append(",\n");
         }
-        str.append(properties.at(i).toPrettyString(depth + 1));
+
+        if (value == "[object]") {
+            str.append(properties.at(i).toPrettyString());
+        }
+        else {
+            str.append(value);
+        }
     }
     str.append("\n");
     for (int i = 0; i < depth; i++) {

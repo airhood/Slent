@@ -7,6 +7,7 @@
 class Constructor {
 private:
     std::string name;
+    std::string value;
     std::vector<Constructor> properties;
 
 public:

@@ -727,7 +727,7 @@ vector<Token> SlentCompiler::lexer(string code) {
 			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 				tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 			}
-			else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|;|<|>|\.|\,)"))) {
+			else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|:|;|<|>|\.|\,)"))) {
 				tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 			}
 			else {
@@ -803,7 +803,6 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 			}
 			Constructor class_define = get<Constructor>(getClass_result);
 			root.addProperty(class_define);
-			i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 			continue;
 		}
 		else {
@@ -948,6 +947,7 @@ tuple<Constructor, int, bool> SlentCompiler::getClass(vector<Token> tokens, int 
 	Constructor class_define = Constructor();
 	class_define.setName("class");
 	if (!vec_check_index(tokens, cursor + 1)) {
+		throwCompileMessage(CompileMessage(SL0008, currentFileName, tokens[cursor].line));
 	}
 	if (tokens[cursor + 1].type != TokenType::IDENTIFIER) {
 		throwCompileMessage(CompileMessage(SL0009, currentFileName, tokens[cursor + 1].line));
@@ -1081,7 +1081,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 			int k;
 
 			// get name
-			if (tokens[i + 2].type != TokenType::IDENTIFIER) {
+			if (tokens[i + 2].type == TokenType::IDENTIFIER) {
 				if (!vec_check_index(tokens, i + 3)) {
 					throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[i + 2].line));
 					continue;
@@ -1246,6 +1246,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				continue;
 			}
 			else {
+				cout << tokens[i].value << endl << tokens[i+1].value << endl << tokens[i+2].value << endl;
 				throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[i + 2].line));
 				i = findNextSemicolon(tokens, i + 2);
 				continue;
@@ -1963,16 +1964,16 @@ bool SlentCompiler::check_type(string type) {
 }
 
 int SlentCompiler::findBraceClose(vector<Token> tokens, int cursor, int current_brace) {
-	int brackets = current_brace;
+	int braces = current_brace;
 	for (int i = cursor; i < tokens.size(); i++) {
 		if (tokens[i].value == "{") {
-			brackets++;
+			braces++;
 		}
 		else if (tokens[i].value == "}") {
-			brackets--;
+			braces--;
 		}
 
-		if (brackets == 0) {
+		if (braces == 0) {
 			return i;
 		}
 	}
@@ -2112,5 +2113,39 @@ void SlentCompiler::Compile() {
 		currentFileName = get<0>(code_files[i]);
 		string preprocessed_code = preprocess(module_tree, no_comment_codes[i], macros);
 		cout << "preprocessed_code:" << endl << preprocessed_code << endl << endl;
+
+		vector<Token> tokens = lexer(preprocessed_code);
+
+		int index = 0;
+		// print tokens
+		for (const auto& token : tokens) {
+			cout << index;
+			index++;
+			string tokenTypeStr;
+			switch (token.type) {
+				case TokenType::KEYWORD:
+					tokenTypeStr = "KEYWORD";
+					break;
+				case TokenType::IDENTIFIER:
+					tokenTypeStr = "IDENTIFIER";
+					break;
+				case TokenType::CONSTANT:
+					tokenTypeStr = "CONSTANT";
+					break;
+				case TokenType::LITERAL:
+					tokenTypeStr = "LITERAL";
+					break;
+				case TokenType::OPERATOR:
+					tokenTypeStr = "OPERATOR";
+				case TokenType::SPECIAL_SYMBOL:
+					tokenTypeStr = "SPECIAL_SYMBOL";
+					break;
+			}
+			cout << "Type: " << tokenTypeStr << ", Value: " << token.value << endl;
+		}
+
+		Constructor AST = parser(tokens);
+		
+		cout << AST.toPrettyString() << endl;
 	}
 }
