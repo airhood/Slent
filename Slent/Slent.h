@@ -149,10 +149,26 @@ struct Macro {
     std::vector<std::string> parameters;
     std::vector<Token> body_t;
     std::string body;
+
+    std::string toString() {
+        std::string str = "";
+        str.append("{\n");
+        str.append("  name: ");
+        str.append(name);
+        str.append("  parameters: {\n");
+        for (int i = 0; i < parameters.size(); i++) {
+            str.append("    " + parameters[i] + "\n");
+        }
+        str.append("  }\n");
+        str.append("}");
+        
+        return str;
+    }
 };
 
 struct CompilerSetting {
-    int max_macro_recursion_depth;
+    int max_macro_recursion_depth = 3;
+    bool trace_compile_logs = false;
 };
 
 class SlentCompiler {
@@ -161,11 +177,13 @@ public:
 
     }
 
-    SlentCompiler(CompilerSetting setting) {
-
+    void configureSetting(CompilerSetting setting) {
+        this->compilerSetting = setting;
     }
 
 private:
+    CompilerSetting compilerSetting = CompilerSetting();
+
     std::vector<std::tuple<std::string, std::string>> code_files;
     std::string currentFileName;
 
@@ -181,6 +199,7 @@ private:
 
     int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
     std::vector<Token> lexer(std::string code);
+
     Constructor parser(std::vector<Token> tokens);
     std::tuple<Constructor, bool> getFunction(std::vector<Token> tokens, Scope scope, bool includeBody);
     std::tuple<Constructor, int, bool> getClass(std::vector<Token> tokens, int cursor);
@@ -196,11 +215,14 @@ private:
     int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);
     int findBracketClose(std::vector<Token> tokens, int cursor, int current_bracket);
     int findNextSemicolon(std::vector<Token> tokens, int cursor);
-    void throwCompileMessage(CompileMessage compileMessage);
-    std::string bytecode(Constructor root);
-    void optimize();
-    void compile_file(std::string file_name, std::string code);
 
+    bool checkAST(Constructor ast);
+
+    std::string bytecode(Constructor ast);
+    void optimize();
+
+    void throwCompileMessage(CompileMessage compileMessage);
+    
 public:
     void AddFile(std::string file_name, std::string code);
     void Compile();

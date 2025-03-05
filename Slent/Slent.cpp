@@ -1471,7 +1471,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 3;
 			}
 			else if (line[2].value == "=") {
-				constant_variable_declear.addProperty("tpye", "auto");
+				constant_variable_declear.addProperty("type", "auto");
 				constant_variable_declear.addProperty("name", line[1].value);
 
 				k = 1;
@@ -1625,7 +1625,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 3;
 			}
 			else if (line[2].value == "=") {
-				variable_declear.addProperty("tpye", "auto");
+				variable_declear.addProperty("type", "auto");
 				variable_declear.addProperty("name", line[1].value);
 
 				k = 1;
@@ -2005,6 +2005,18 @@ int SlentCompiler::findNextSemicolon(vector<Token> tokens, int cursor) {
 	}
 }
 
+bool checkAST(Constructor ast) {
+
+}
+
+string SlentCompiler::bytecode(Constructor ast) {
+	return "";
+}
+
+void SlentCompiler::optimize() {
+
+}
+
 void SlentCompiler::throwCompileMessage(CompileMessage compileMessage) {
 	string type;
 	int color;
@@ -2032,14 +2044,7 @@ void SlentCompiler::throwCompileMessage(CompileMessage compileMessage) {
 	cout << str << endl;
 }
 
-string SlentCompiler::bytecode(Constructor root) {
-	return "";
-}
-
-void SlentCompiler::optimize() {
-
-}
-
+/*
 void SlentCompiler::compile_file(string file_name, string code) {
 	currentFileName = file_name;
 
@@ -2086,6 +2091,7 @@ void SlentCompiler::compile_file(string file_name, string code) {
 
 	currentFileName = "";
 }
+*/
 
 void SlentCompiler::AddFile(string file_name, string code) {
 	code_files.push_back(make_tuple(file_name, code));
@@ -2095,57 +2101,122 @@ void SlentCompiler::Compile() {
 	vector<string> no_comment_codes;
 
 	Constructor module_tree;
+	bool first_module = true;
 
 	for (auto& [filename, code] : code_files) {
 		currentFileName = filename;
-		cout << "source code:" << endl << code << endl << endl;
+
+		if (compilerSetting.trace_compile_logs) {
+			cout << "[ source code ]" << endl;
+			vector<string> split_code = split(code, '\n');
+			int maxNumLength = to_string(split_code.size()).length();
+			for (int i = 1; i <= split_code.size(); i++) {
+				int numLength = to_string(i).length();
+				int paddingLength = maxNumLength - numLength;
+				string padding = "";
+				for (int k = 0; k < paddingLength; k++) {
+					padding.append(" ");
+				}
+				cout << padding << i << "| " << split_code[i - 1] << endl;
+			}
+			cout << endl;
+		}
+
 		regex commentRegex("//.*");
 		string no_comment_code = regex_replace(code, commentRegex, "");
 		no_comment_codes.push_back(no_comment_code);
 
 		Constructor module_tree_file = getModuleTree(code);
-		module_tree = get<Constructor>(Constructor::merge(module_tree, module_tree_file));
+		if (first_module) {
+			module_tree = module_tree_file;
+			first_module = false;
+		}
+		else {
+			tuple<Constructor, bool> module_tree_merge_result = Constructor::merge(module_tree, module_tree_file);
+			Constructor module_tree = get<Constructor>(module_tree_merge_result);
+		}
+
+		if (compilerSetting.trace_compile_logs) {
+			cout << "[ module_tree ]" << endl << module_tree.toPrettyString() << endl << endl;
+		}
 	}
 
 	vector<Macro> macros = getMacros(module_tree, no_comment_codes);
 
+	if (compilerSetting.trace_compile_logs) {
+		cout << "[ macros ]" << endl;
+		for (auto& macro : macros) {
+			cout << macro.toString() << endl;
+		}
+		cout << endl;
+	}
+
 	for (int i = 0; i < no_comment_codes.size(); i++) {
 		currentFileName = get<0>(code_files[i]);
 		string preprocessed_code = preprocess(module_tree, no_comment_codes[i], macros);
-		cout << "preprocessed_code:" << endl << preprocessed_code << endl << endl;
+		if (compilerSetting.trace_compile_logs) {
+			cout << "[ preprocessed_code ]" << endl;
+			vector<string> split_preprocessed_code = split(preprocessed_code, '\n');
+			int maxNumLength = to_string(split_preprocessed_code.size()).length();
+			for (int j = 1; j <= split_preprocessed_code.size(); j++) {
+				int numLength = to_string(j).length();
+				int paddingLength = maxNumLength - numLength;
+				string padding = "";
+				for (int k = 0; k < paddingLength; k++) {
+					padding.append(" ");
+				}
+				cout << padding << j << "| " << split_preprocessed_code[j - 1] << endl;
+			}
+			cout << endl;
+		}
 
 		vector<Token> tokens = lexer(preprocessed_code);
 
-		int index = 0;
-		// print tokens
-		for (const auto& token : tokens) {
-			cout << index;
-			index++;
-			string tokenTypeStr;
-			switch (token.type) {
-				case TokenType::KEYWORD:
-					tokenTypeStr = "KEYWORD";
-					break;
-				case TokenType::IDENTIFIER:
-					tokenTypeStr = "IDENTIFIER";
-					break;
-				case TokenType::CONSTANT:
-					tokenTypeStr = "CONSTANT";
-					break;
-				case TokenType::LITERAL:
-					tokenTypeStr = "LITERAL";
-					break;
-				case TokenType::OPERATOR:
-					tokenTypeStr = "OPERATOR";
-				case TokenType::SPECIAL_SYMBOL:
-					tokenTypeStr = "SPECIAL_SYMBOL";
-					break;
+		if (compilerSetting.trace_compile_logs) {
+			cout << "[ tokens ]" << endl;
+
+			int maxNumLength = to_string(tokens.size()).length();
+			int index = 1;
+			// print tokens
+			for (const auto& token : tokens) {
+				int numLength = to_string(index).length();
+				int paddingLength = maxNumLength - numLength;
+				string padding = "";
+				for (int k = 0; k < paddingLength; k++) {
+					padding.append(" ");
+				}
+				cout << padding << index << "| ";
+				index++;
+				string tokenTypeStr;
+				switch (token.type) {
+					case TokenType::KEYWORD:
+						tokenTypeStr = "KEYWORD";
+						break;
+					case TokenType::IDENTIFIER:
+						tokenTypeStr = "IDENTIFIER";
+						break;
+					case TokenType::CONSTANT:
+						tokenTypeStr = "CONSTANT";
+						break;
+					case TokenType::LITERAL:
+						tokenTypeStr = "LITERAL";
+						break;
+					case TokenType::OPERATOR:
+						tokenTypeStr = "OPERATOR";
+					case TokenType::SPECIAL_SYMBOL:
+						tokenTypeStr = "SPECIAL_SYMBOL";
+						break;
+				}
+				cout << "Type: " << tokenTypeStr << ", Value: " << token.value << endl;
 			}
-			cout << "Type: " << tokenTypeStr << ", Value: " << token.value << endl;
+			cout << endl;
 		}
 
 		Constructor AST = parser(tokens);
 		
-		cout << AST.toPrettyString() << endl;
+		if (compilerSetting.trace_compile_logs) {
+			cout << "[ AST ]" << endl;
+			cout << AST.toPrettyString() << endl;
+		}
 	}
 }

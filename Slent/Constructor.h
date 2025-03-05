@@ -38,6 +38,8 @@ public:
     std::vector<Constructor> getProperties() const;
     void addProperty(std::string name, std::string value);
     void addProperty(Constructor property);
+    void setValue(std::string value);
+    std::string getValue();
     std::string getValue() const;
     std::string toString() const;
     std::string toPrettyString(int depth = 0) const;
