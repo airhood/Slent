@@ -84,7 +84,7 @@ vector<Token> SlentCompiler::getPreprocessorTokens(string code) {
 				tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0000(matched), currentFileName, i));
+				throwCompileMessage(CompileMessage(SL0000E(matched), currentFileName, i));
 			}
 			code_split[i] = match.suffix().str();
 		}
@@ -107,7 +107,7 @@ vector<string> SlentCompiler::getImports(Constructor module_tree, vector<Token> 
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].value == "import") {
 			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0006, currentFileName, tokens[i + 5].line));
+				throwCompileMessage(CompileMessage(SL0006E, currentFileName, tokens[i + 5].line));
 				break;
 			}
 
@@ -118,23 +118,23 @@ vector<string> SlentCompiler::getImports(Constructor module_tree, vector<Token> 
 			while (true) {
 				if (tokens[j].type == TokenType::IDENTIFIER) {
 					if (!current_depth_module.propertyExist(tokens[j].value)) {
-						throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+						throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j].line));
 						goto err_1;
 					}
 					current_depth_module = current_depth_module.getProperty(tokens[j].value);
 					import_temp.append(tokens[j].value.append("::"));
 				}
 				else {
-					throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+					throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j].line));
 					goto err_1;
 				}
 				if (!vec_check_index(tokens, j + 1)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[j + 1].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[j + 1].line));
 					goto err_1;
 				}
 				if (tokens[j + 1].value != "::") {
 					if (tokens[j + 1].value != ";") {
-						throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[j + 1].line));
+						throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[j + 1].line));
 						goto err_1;
 					}
 					j = j + 1;
@@ -166,7 +166,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 
 		for (int i = 0; i < tokens.size(); i++) {
 			if ((tokens[i].value == "$") && (!vec_check_index(tokens, i + 1))) {
-				throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0001E, currentFileName, tokens[i + 1].line));
 				break;
 			}
 
@@ -174,7 +174,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 
 			if ((tokens[i].value == "$") && (tokens[i + 1].value == "macro_def")) {
 				if (tokens[i - 1].line == tokens[i].line) {
-					throwCompileMessage(CompileMessage(SL0001, currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0001E, currentFileName, tokens[i].line));
 					continue;
 				}
 
@@ -182,25 +182,25 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 				macro.name = tokens[i + 1].value;
 
 				if (!vec_check_index(tokens, i + 2)) {
-					throwCompileMessage(CompileMessage(SL0002, currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0002E, currentFileName, tokens[i].line));
 					break;
 				}
 				if ((tokens[i + 1].line != tokens[i + 2].line) || (tokens[i + 2].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(SL0002, currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0002E, currentFileName, tokens[i].line));
 					continue;
 				}
 
 
 				if (!vec_check_index(tokens, i + 5)) {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 2].line));
 					break;
 				}
 				if (tokens[i + 3].value != "{") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 				if (tokens[i + 4].value != "$") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 3].line));
 					continue;
 				}
 
@@ -209,7 +209,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 				}
 				else if (tokens[i + 5].value == "macro_module") {
 					if (!vec_check_index(tokens, i + 6)) {
-						throwCompileMessage(CompileMessage(SL0006, currentFileName, tokens[i + 5].line));
+						throwCompileMessage(CompileMessage(SL0006E, currentFileName, tokens[i + 5].line));
 						break;
 					}
 
@@ -218,14 +218,14 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 					while (true) {
 						if (tokens[j].type == TokenType::IDENTIFIER) {
 							if (!current_depth_module.propertyExist(tokens[j].value)) {
-								throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+								throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j].line));
 								goto err_2;
 							}
 							current_depth_module = current_depth_module.getProperty(tokens[j].value);
 							macro.macro_module.append(tokens[j].value.append("::"));
 						}
 						else {
-							throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j].line));
+							throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j].line));
 							goto err_2;
 						}
 						if (!vec_check_index(tokens, j + 1)) {
@@ -234,7 +234,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 						}
 						if (tokens[j + 1].value != "::") {
 							if (tokens[j].line == tokens[j + 1].line) {
-								throwCompileMessage(CompileMessage(SL0033, currentFileName, tokens[j + 1].line));
+								throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j + 1].line));
 								goto err_2;
 							}
 							j = j + 1;
@@ -250,12 +250,12 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 				nerr_2:
 
 					if (!vec_check_index(tokens, j + 1)) {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+						throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 2].line));
 						break;
 					}
 
 					if (tokens[j].value != "$") {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 2].line));
+						throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 2].line));
 						continue;
 					}
 
@@ -263,32 +263,32 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 						i = j + 1;
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 7].line));
+						throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 7].line));
 						continue;
 					}
 				}
 				else {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i + 4].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i + 4].line));
 					continue;
 				}
 
 				for (int j = i + 1; j < findBracketClose(tokens, i + 4, 1); j++) {
 					if (tokens[j].value == "~") {
 						if (!vec_check_index(tokens, j + 1)) {
-							throwCompileMessage(CompileMessage(SL0026, currentFileName, tokens[j].line));
+							throwCompileMessage(CompileMessage(SL0026E, currentFileName, tokens[j].line));
 							break;
 						}
 
 						if (tokens[j + 1].type == TokenType::IDENTIFIER) {
 							if (tokens[j + 1].value == "null") {
-								throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j + 1].line));
+								throwCompileMessage(CompileMessage(SL0005E, currentFileName, tokens[j + 1].line));
 							}
 							else {
 								macro.parameters.push_back(tokens[j + 1].value);
 							}
 
 							if (!vec_check_index(tokens, j + 2)) {
-								throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j].line));
+								throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[j].line));
 								break;
 							}
 
@@ -300,7 +300,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 								break;
 							}
 							else {
-								throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j].line));
+								throwCompileMessage(CompileMessage(SL0014E, currentFileName, tokens[j].line));
 								j = t_find_next(tokens, j + 2, vector<string> {","});
 								continue;
 							}
@@ -311,10 +311,10 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 							break;
 						}
 						else {
-							throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j].line));
+							throwCompileMessage(CompileMessage(SL0005E, currentFileName, tokens[j].line));
 
 							if (!vec_check_index(tokens, j + 2)) {
-								throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j + 1].line));
+								throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[j + 1].line));
 								break;
 							}
 
@@ -323,7 +323,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 								continue;
 							}
 							else {
-								throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j + 1].line));
+								throwCompileMessage(CompileMessage(SL0014E, currentFileName, tokens[j + 1].line));
 								j = t_find_next(tokens, j + 2, vector<string> {","});
 								continue;
 							}
@@ -333,7 +333,7 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 						macro.parameters.push_back(tokens[j].value);
 
 						if (!vec_check_index(tokens, j + 1)) {
-							throwCompileMessage(CompileMessage(SL0027, currentFileName, tokens[j].line));
+							throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[j].line));
 							break;
 						}
 
@@ -345,29 +345,29 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 							break;
 						}
 						else {
-							throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j].line));
+							throwCompileMessage(CompileMessage(SL0014E, currentFileName, tokens[j].line));
 							j = t_find_next(tokens, j + 2, vector<string> {","});
 							continue;
 						}
 						continue;
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0005, currentFileName, tokens[j].line));
+						throwCompileMessage(CompileMessage(SL0005E, currentFileName, tokens[j].line));
 					}
 				}
 				i = findBracketClose(tokens, i + 3, 1) + 1;
 
 				if (!vec_check_index(tokens, i)) {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i - 1].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i - 1].line));
 					break;
 				}
 
 				if (tokens[i].value != "=>") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i - 1].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i - 1].line));
 					continue;
 				}
 				if (tokens[i + 1].value != "{") {
-					throwCompileMessage(CompileMessage(SL0004, currentFileName, tokens[i].line));
+					throwCompileMessage(CompileMessage(SL0004E, currentFileName, tokens[i].line));
 					continue;
 				}
 
@@ -472,7 +472,7 @@ string SlentCompiler::runMacros(string code, vector<Macro> macros) {
 							state = -1;
 						}
 						else {
-							throwCompileMessage(CompileMessage(SL0005, currentFileName, getLineNum(m_code, i)));
+							throwCompileMessage(CompileMessage(SL0005E, currentFileName, getLineNum(m_code, i)));
 							m_code.replace(index, findMacroEnd() - index + 1, "");
 							goto err;
 						}
@@ -483,7 +483,7 @@ string SlentCompiler::runMacros(string code, vector<Macro> macros) {
 							state = 0;
 						}
 						else {
-							throwCompileMessage(CompileMessage(SL0023, currentFileName, getLineNum(m_code, i)));
+							throwCompileMessage(CompileMessage(SL0023E, currentFileName, getLineNum(m_code, i)));
 							m_code.replace(index, findMacroEnd() - index + 1, "");
 							goto err;
 						}
@@ -520,38 +520,38 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].value == "export") {
 			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0028, currentFileName, tokens[i].line));
+				throwCompileMessage(CompileMessage(SL0028E, currentFileName, tokens[i].line));
 				break;
 			}
 
 			if (tokens[i + 1].value != "module") {
 				if (!vec_check_index(tokens, i + 2)) {
-					throwCompileMessage(CompileMessage(SL0029, currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0029E, currentFileName, tokens[i + 1].line));
 					break;
 				}
 
 				if (tokens[i + 2].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
 				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 2].line));
 					break;
 				}
 
 				if (tokens[i + 3].value != "{") {
-					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
 				if (!vec_check_index(tokens, i + 4)) {
-					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 3].line));
 					continue;
 				}
 
 				if (findBraceClose(tokens, i + 4, 1) == -1) {
-					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[tokens.size() - 1].line));
 					continue;
 				}
 
@@ -563,32 +563,32 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 		}
 		else if (tokens[i].value == "module") {
 			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i].line));
+				throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i].line));
 				break;
 			}
 
 			if (tokens[i + 1].type != TokenType::IDENTIFIER) {
-				throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i + 1].line));
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 1].line));
 				break;
 			}
 
 			if (tokens[i + 2].value != "{") {
-				throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 1].line));
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + 3)) {
-				throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 2].line));
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 2].line));
 				continue;
 			}
 
 			if (findBraceClose(tokens, i + 3, 1) == -1) {
-				throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[tokens.size() - 1].line));
 				continue;
 			}
 
@@ -609,38 +609,38 @@ Constructor SlentCompiler::getSubModuleTree(string code, Scope scope) {
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].value == "export") {
 			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0028, currentFileName, tokens[i].line));
+				throwCompileMessage(CompileMessage(SL0028E, currentFileName, tokens[i].line));
 				break;
 			}
 
 			if (tokens[i + 1].value != "module") {
 				if (!vec_check_index(tokens, i + 2)) {
-					throwCompileMessage(CompileMessage(SL0029, currentFileName, tokens[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0029E, currentFileName, tokens[i + 1].line));
 					break;
 				}
 
 				if (tokens[i + 2].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
 				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 2].line));
 					break;
 				}
 
 				if (tokens[i + 3].value != "{") {
-					throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
 				if (!vec_check_index(tokens, i + 4)) {
-					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 3].line));
 					continue;
 				}
 
 				if (findBraceClose(tokens, i + 4, 1) == -1) {
-					throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[tokens.size() - 1].line));
 					continue;
 				}
 
@@ -652,32 +652,32 @@ Constructor SlentCompiler::getSubModuleTree(string code, Scope scope) {
 		}
 		else if (tokens[i].value == "module") {
 			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i].line));
+				throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i].line));
 				break;
 			}
 
 			if (tokens[i + 1].type != TokenType::IDENTIFIER) {
-				throwCompileMessage(CompileMessage(SL0030, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i + 1].line));
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 1].line));
 				break;
 			}
 
 			if (tokens[i + 2].value != "{") {
-				throwCompileMessage(CompileMessage(SL0031, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 1].line));
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + 3)) {
-				throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[i + 2].line));
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 2].line));
 				continue;
 			}
 
 			if (findBraceClose(tokens, i + 3, 1) == -1) {
-				throwCompileMessage(CompileMessage(SL0032, currentFileName, tokens[tokens.size() - 1].line));
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[tokens.size() - 1].line));
 				continue;
 			}
 
@@ -731,7 +731,7 @@ vector<Token> SlentCompiler::lexer(string code) {
 				tokens.push_back(Token(TokenType::SPECIAL_SYMBOL, matched, i));
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0000(matched), currentFileName, i));
+				throwCompileMessage(CompileMessage(SL0000E(matched), currentFileName, i));
 			}
 			code_split[i] = match.suffix().str();
 		}
@@ -777,7 +777,17 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 
 			if (vec_check_index(tokens, functionBodyEnd + 1)) {
 				if (tokens[functionBodyEnd + 1].value == ":") {
-					throwCompileMessage(CompileMessage(SL0040, currentFileName, tokens[functionBodyEnd + 2].line));
+					throwCompileMessage(CompileMessage(SL0040E, currentFileName, tokens[functionBodyEnd + 2].line));
+					if (vec_check_index(tokens, functionBodyEnd + 2)) {
+						if ((tokens[functionBodyEnd + 2].value == "public")
+							|| (tokens[functionBodyEnd + 2].value == "protected")
+							|| (tokens[functionBodyEnd + 2].value == "private")) {
+							i = functionBodyEnd + 2;
+						}
+					}
+					else {
+						i = functionBodyEnd + 1;
+					}
 					continue;
 				}
 			}
@@ -806,7 +816,8 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 			continue;
 		}
 		else {
-			throwCompileMessage(CompileMessage(SL0035, currentFileName, tokens[i].line));
+			cout << tokens[i].value << endl;
+			throwCompileMessage(CompileMessage(SL0035E, currentFileName, tokens[i].line));
 			continue;
 		}
 	}
@@ -818,12 +829,12 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 	int i = scope.start;
 	if (tokens[i].value == "func") {
 		if ((i + 1) > scope.end) {
-			throwCompileMessage(CompileMessage(SL0019, currentFileName, tokens[i].line));
+			throwCompileMessage(CompileMessage(SL0019E, currentFileName, tokens[i].line));
 			return make_tuple(Constructor(), false);
 		}
 
 		if (tokens[i + 1].type != TokenType::IDENTIFIER) {
-			throwCompileMessage(CompileMessage(SL0020, currentFileName, tokens[i + 1].line));
+			throwCompileMessage(CompileMessage(SL0020E, currentFileName, tokens[i + 1].line));
 			return make_tuple(Constructor(), false);
 		}
 
@@ -832,12 +843,12 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 		function.addProperty("name", tokens[i + 1].value);
 
 		if ((i + 2) > scope.end) {
-			throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i + 1].line));
+			throwCompileMessage(CompileMessage(SL0011E, currentFileName, tokens[i + 1].line));
 			return make_tuple(Constructor(), false);
 		}
 
 		if (tokens[i + 2].value != "(") {
-			throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i + 2].line));
+			throwCompileMessage(CompileMessage(SL0011E, currentFileName, tokens[i + 2].line));
 			return make_tuple(Constructor(), false);
 		}
 		i = i + 2;
@@ -857,7 +868,7 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 
 		for (int j = i + 1; j < findBracketClose(tokens, i + 1, 1); j++) {
 			if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[j].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[j].line));
 				j = t_find_next(tokens, j, vector<string> {","});
 				error = true;
 				continue;
@@ -868,7 +879,7 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 			}
 
 			if (tokens[j + 1].type != TokenType::IDENTIFIER) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[j + 1].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[j + 1].line));
 				i = t_find_next(tokens, j + 1, vector<string> {","});
 				continue;
 			}
@@ -878,7 +889,7 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 			}
 
 			if (tokens[j + 2].value != ",") {
-				throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j + 1].line));
+				throwCompileMessage(CompileMessage(SL0014E, currentFileName, tokens[j + 1].line));
 				i = t_find_next(tokens, j + 2, vector<string> {","});
 				continue;
 			}
@@ -902,29 +913,29 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 		i = t_find_next(tokens, i + 1, vector<string> {")"});
 
 		if ((i + 2) > scope.end) {
-			throwCompileMessage(CompileMessage(SL0022, currentFileName, tokens[i].line));
+			throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i].line));
 			return make_tuple(Constructor(), false);
 		}
 
 		if (tokens[i + 1].value != "{") {
 			if (tokens[i + 1].value == "->") {
 				if ((i + 3) > scope.end) {
-					throwCompileMessage(CompileMessage(SL0021, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0021E, currentFileName, tokens[i + 2].line));
 					return make_tuple(Constructor(), false);
 				}
 
 				if ((tokens[i + 2].type != TokenType::KEYWORD) && (tokens[i + 2].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 3].line));
 					return make_tuple(Constructor(), false);
 				}
 				function.addProperty("return_type", tokens[i + 2].value);
 				if (tokens[i + 3].value != "{") {
-					throwCompileMessage(CompileMessage(SL0022, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i + 3].line));
 				}
 				i = i + 3;
 				goto return_type_done;
 			}
-			throwCompileMessage(CompileMessage(SL0022, currentFileName, tokens[i].line));
+			throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i].line));
 			return make_tuple(Constructor(), false);
 		}
 		// tokens[i + 1].value == "{" => true
@@ -947,15 +958,15 @@ tuple<Constructor, int, bool> SlentCompiler::getClass(vector<Token> tokens, int 
 	Constructor class_define = Constructor();
 	class_define.setName("class");
 	if (!vec_check_index(tokens, cursor + 1)) {
-		throwCompileMessage(CompileMessage(SL0008, currentFileName, tokens[cursor].line));
+		throwCompileMessage(CompileMessage(SL0008E, currentFileName, tokens[cursor].line));
 	}
 	if (tokens[cursor + 1].type != TokenType::IDENTIFIER) {
-		throwCompileMessage(CompileMessage(SL0009, currentFileName, tokens[cursor + 1].line));
+		throwCompileMessage(CompileMessage(SL0009E, currentFileName, tokens[cursor + 1].line));
 		return make_tuple(class_define, cursor, false);
 	}
 	class_define.addProperty("name", tokens[cursor + 1].value);
 	if (tokens[cursor + 2].value != "{") {
-		throwCompileMessage(CompileMessage(SL0010, currentFileName, tokens[cursor + 1].line));
+		throwCompileMessage(CompileMessage(SL0010E, currentFileName, tokens[cursor + 1].line));
 		return make_tuple(class_define, cursor + 1, false);
 	}
 	Constructor members = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
@@ -991,7 +1002,7 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 			constructor.setName("constructor");
 
 			if (tokens[i + 1].value != "(") {
-				throwCompileMessage(CompileMessage(SL0011, currentFileName, tokens[i + 4].line));
+				throwCompileMessage(CompileMessage(SL0011E, currentFileName, tokens[i + 4].line));
 				continue;
 			}
 
@@ -1000,7 +1011,7 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 			int k = 0;
 			for (int j = i + 2; j < findBracketClose(tokens, i + 2, 1); j++) {
 				if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
-					throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[j].line));
+					throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[j].line));
 					i = t_find_next(tokens, j, vector<string> {","});
 					continue;
 				}
@@ -1008,7 +1019,7 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 					if ((j + 1) >= findBracketClose(tokens, i + 2, 1)) {
 						break;
 					}
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[j + 1].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[j + 1].line));
 					i = t_find_next(tokens, j + 1, vector<string> {","});
 					continue;
 				}
@@ -1016,7 +1027,7 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 					if ((j + 2) >= findBracketClose(tokens, i + 2, 1)) {
 						break;
 					}
-					throwCompileMessage(CompileMessage(SL0014, currentFileName, tokens[j + 1].line));
+					throwCompileMessage(CompileMessage(SL0014E, currentFileName, tokens[j + 1].line));
 					i = t_find_next(tokens, j + 2, vector<string> {","});
 					continue;
 				}
@@ -1035,7 +1046,7 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 			i = t_find_next(tokens, i + 2, vector<string> {")"});
 
 			if (tokens[i + 1].value != "{") {
-				throwCompileMessage(CompileMessage(SL0022, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i + 1].line));
 				continue;
 			}
 
@@ -1062,19 +1073,19 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 			variable.setName("variable_c");
 
 			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0016, currentFileName, tokens[i].line));
+				throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
 				continue;
 			}
 
 			// get type
 			if ((tokens[i + 1].type != TokenType::KEYWORD) && (tokens[i + 1].type != TokenType::IDENTIFIER)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
 				i = findNextSemicolon(tokens, i + 1);
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, tokens[i + 1].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
 				continue;
 			}
 
@@ -1083,7 +1094,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 			// get name
 			if (tokens[i + 2].type == TokenType::IDENTIFIER) {
 				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
@@ -1105,7 +1116,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				// get access_modifier
 				if (tokens[i + 3 + reference_offset].value == ":") {
 					if (!vec_check_index(tokens, i + 4 + reference_offset)) {
-						throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[i + 3 + reference_offset].line));
+						throwCompileMessage(CompileMessage(SL0036E, currentFileName, tokens[i + 3 + reference_offset].line));
 						continue;
 					}
 
@@ -1122,7 +1133,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 						access_modifier_offset = 2;
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[i + 4 + reference_offset].line));
+						throwCompileMessage(CompileMessage(SL0036E, currentFileName, tokens[i + 4 + reference_offset].line));
 						i = findNextSemicolon(tokens, i + 4 + reference_offset);
 						continue;
 					}
@@ -1134,7 +1145,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				variable.addProperty("nullable", "1");
 
 				if (!vec_check_index(tokens, 3)) {
-					throwCompileMessage(CompileMessage(SL0016, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
@@ -1149,7 +1160,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				}
 
 				if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[i + 3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3 + reference_offset].line));
 					i = findNextSemicolon(tokens, i + 3 + reference_offset);
 					continue;
 				}
@@ -1158,13 +1169,13 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				int access_modifier_offset = 0;
 
 				if (!vec_check_index(tokens, i + 4 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[i + 3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3 + reference_offset].line));
 					continue;
 				}
 
 				if (tokens[i + 4 + reference_offset].value == ":") {
 					if (!vec_check_index(tokens, i + 5 + reference_offset)) {
-						throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[i + 4 + reference_offset].line));
+						throwCompileMessage(CompileMessage(SL0036E, currentFileName, tokens[i + 4 + reference_offset].line));
 						continue;
 					}
 
@@ -1181,7 +1192,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 						access_modifier_offset = 2;
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[i + 5 + reference_offset].line));
+						throwCompileMessage(CompileMessage(SL0036E, currentFileName, tokens[i + 5 + reference_offset].line));
 						i = findNextSemicolon(tokens, i + 5 + reference_offset);
 						continue;
 					}
@@ -1194,12 +1205,12 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				variable.addProperty("type", tokens[i + 1].value + "&");
 
 				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0016, currentFileName, tokens[i + 2].line));
+					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
 					continue;
 				}
 
 				if (tokens[i + 3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3].line));
 					i = findNextSemicolon(tokens, i + 3);
 					continue;
 				}
@@ -1208,13 +1219,13 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				int access_modifier_offset = 0;
 
 				if (!vec_check_index(tokens, i + 4)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[i + 3].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3].line));
 					continue;
 				}
 
 				if (tokens[i + 4].value == ":") {
 					if (!vec_check_index(tokens, i + 5)) {
-						throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[i + 4].line));
+						throwCompileMessage(CompileMessage(SL0036E, currentFileName, tokens[i + 4].line));
 					}
 
 					if (tokens[i + 5].value == "public") {
@@ -1241,19 +1252,19 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 			}
 			else if (tokens[i + 2].value == ";") {
 				variable.addProperty("name", tokens[i + 1].value);
-				throwCompileMessage(CompileMessage(SL0034, currentFileName, tokens[i + 2].line));
+				throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
 				i = i + 2;
 				continue;
 			}
 			else {
 				cout << tokens[i].value << endl << tokens[i+1].value << endl << tokens[i+2].value << endl;
-				throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[i + 2].line));
+				throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
 				i = findNextSemicolon(tokens, i + 2);
 				continue;
 			}
 
 			if (!vec_check_index(tokens, k + 1)) {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[k].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[k].line));
 				continue;
 			}
 
@@ -1271,7 +1282,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				i = findNextSemicolon(tokens, k + 1);
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, tokens[i].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
 				i = findNextSemicolon(tokens, k + 1);
 				continue;
 			}
@@ -1316,7 +1327,7 @@ vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope
 				if (!vec_check_index(tokens, functionBodyEnd + 1)) {
 					if (tokens[functionBodyEnd + 1].value == ":") {
 						if (!vec_check_index(tokens, functionBodyEnd + 2)) {
-							throwCompileMessage(CompileMessage(SL0036, currentFileName, tokens[functionBodyEnd + 1].line));
+							throwCompileMessage(CompileMessage(SL0036E, currentFileName, tokens[functionBodyEnd + 1].line));
 							continue;
 						}
 						
@@ -1348,28 +1359,27 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 		vector<Token> line = split[i];
 
 		if (line[0].value == ";") {
-			// TODO: Message(Unnecessary semicolon)
 			continue;
 		}
 
-		if (line[0].value == "val") { // declear value
+		if (line[0].value == "val") { // declear value variable
 			Constructor constant_variable_declear = Constructor();
 			constant_variable_declear.setName("variable_decl_l");
 			constant_variable_declear.addProperty("isVal", "1");
 
 			if (!vec_check_index(line, 1)) {
-				throwCompileMessage(CompileMessage(SL0016, currentFileName, line[0].line));
+				throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[0].line));
 				continue;
 			}
 
 			// get type
 			if ((line[1].type != TokenType::KEYWORD) && (line[1].type != TokenType::IDENTIFIER)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, line[1].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, line[1].line));
 				continue;
 			}
 
 			if (!vec_check_index(line, 2)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, line[1].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, line[1].line));
 				continue;
 			}
 
@@ -1378,7 +1388,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			// get name
 			if (line[2].type == TokenType::IDENTIFIER) {
 				if (!vec_check_index(line, 3)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2].line));
 					continue;
 				}
 
@@ -1396,12 +1406,12 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				constant_variable_declear.addProperty("name", line[2].value);
 
 				if (!vec_check_index(line, 3 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[2 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2 + reference_offset].line));
 					continue;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (line[3 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, line[3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0015E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
 
@@ -1411,7 +1421,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				constant_variable_declear.addProperty("nullable", "1");
 
 				if (!vec_check_index(line, 3)) {
-					throwCompileMessage(CompileMessage(SL0016, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
 					continue;
 				}
 
@@ -1426,18 +1436,18 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				}
 
 				if (line[3 + reference_offset].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, line[3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
 				constant_variable_declear.addProperty("name", line[3 + reference_offset].value);
 
 				if (!vec_check_index(line, 4 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (line[4 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, line[4 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0015E, currentFileName, line[4 + reference_offset].line));
 					continue;
 				}
 
@@ -1448,23 +1458,23 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				constant_variable_declear.addProperty("type", line[1].value + "&");
 
 				if (!vec_check_index(line, 3)) {
-					throwCompileMessage(CompileMessage(SL0016, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
 					continue;
 				}
 
 				if (line[3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[3].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
 					continue;
 				}
 				constant_variable_declear.addProperty("name", line[3].value);
 
 				if (!vec_check_index(line, 4)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2].line));
 					continue;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (line[4].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, line[4].line));
+					throwCompileMessage(CompileMessage(SL0015E, currentFileName, line[4].line));
 					continue;
 				}
 
@@ -1478,17 +1488,17 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			}
 			else if (line[2].value == ";") {
 				constant_variable_declear.addProperty("name", line[1].value);
-				throwCompileMessage(CompileMessage(SL0034, currentFileName, line[2].line));
-				throwCompileMessage(CompileMessage(SL0025, currentFileName, line[2].line));
+				throwCompileMessage(CompileMessage(SL0034E, currentFileName, line[2].line));
+				throwCompileMessage(CompileMessage(SL0025E, currentFileName, line[2].line));
 				continue;
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0013, currentFileName, line[2].line));
+				throwCompileMessage(CompileMessage(SL0013E, currentFileName, line[2].line));
 				continue;
 			}
 
 			if (!vec_check_index(line, k + 1)) {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, line[k].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[k].line));
 				continue;
 			}
 
@@ -1502,28 +1512,28 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				continue;
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, line[k + 1].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[k + 1].line));
 				continue;
 			}
 		}
-		else if (line[0].value == "var") {
+		else if (line[0].value == "var") { // declear variable
 			Constructor variable_declear = Constructor();
 			variable_declear.setName("variable_decl_l");
 			variable_declear.addProperty("isVal", "0");
 
 			if (!vec_check_index(line, 1)) {
-				throwCompileMessage(CompileMessage(SL0016, currentFileName, line[0].line));
+				throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[0].line));
 				continue;
 			}
 
 			// get type
 			if ((line[1].type != TokenType::KEYWORD) && (line[1].type != TokenType::IDENTIFIER)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, line[i].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, line[i].line));
 				continue;
 			}
 
 			if (!vec_check_index(line, 2)) {
-				throwCompileMessage(CompileMessage(SL0012, currentFileName, line[1].line));
+				throwCompileMessage(CompileMessage(SL0012E, currentFileName, line[1].line));
 				continue;
 			}
 
@@ -1532,7 +1542,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			// get name
 			if (line[2].type == TokenType::IDENTIFIER) {
 				if (!vec_check_index(line, 3)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2].line));
 					continue;
 				}
 
@@ -1550,12 +1560,12 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				variable_declear.addProperty("name", line[2].value);
 
 				if (!vec_check_index(line, 3 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[2 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2 + reference_offset].line));
 					continue;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (line[3 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, line[3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0015E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
 
@@ -1565,7 +1575,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				variable_declear.addProperty("nullable", "1");
 
 				if (!vec_check_index(line, 3)) {
-					throwCompileMessage(CompileMessage(SL0016, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
 					continue;
 				}
 
@@ -1580,18 +1590,18 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				}
 
 				if (line[3 + reference_offset].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, line[3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
 				variable_declear.addProperty("name", line[3 + reference_offset].value);
 
 				if (!vec_check_index(line, 4 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[3 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (line[4 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, line[4 + reference_offset].line));
+					throwCompileMessage(CompileMessage(SL0015E, currentFileName, line[4 + reference_offset].line));
 					continue;
 				}
 
@@ -1602,23 +1612,23 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				variable_declear.addProperty("type", line[1].value + "&");
 
 				if (!vec_check_index(line, 3)) {
-					throwCompileMessage(CompileMessage(SL0016, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
 					continue;
 				}
 
 				if (line[3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013, currentFileName, tokens[3].line));
+					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
 					continue;
 				}
 				variable_declear.addProperty("name", line[3].value);
 
 				if (!vec_check_index(line, 4)) {
-					throwCompileMessage(CompileMessage(SL0018, currentFileName, line[2].line));
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2].line));
 					continue;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (line[4].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015, currentFileName, line[4].line));
+					throwCompileMessage(CompileMessage(SL0015E, currentFileName, line[4].line));
 					continue;
 				}
 
@@ -1632,16 +1642,16 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			}
 			else if (line[2].value == ";") {
 				variable_declear.addProperty("name", line[1].value);
-				throwCompileMessage(CompileMessage(SL0034, currentFileName, line[2].line));
+				throwCompileMessage(CompileMessage(SL0034E, currentFileName, line[2].line));
 				continue;
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0013, currentFileName, line[2].line));
+				throwCompileMessage(CompileMessage(SL0013E, currentFileName, line[2].line));
 				continue;
 			}
 
 			if (!vec_check_index(line, k + 1)) {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, line[k].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[k].line));
 				continue;
 			}
 
@@ -1659,13 +1669,13 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				continue;
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, line[k + 1].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[k + 1].line));
 				continue;
 			}
 		}
 		else if (line[0].value == "return") {
 			if (!vec_check_index(line, 1)) {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, line[0].line));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[0].line));
 				continue;
 			}
 
@@ -1737,7 +1747,7 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 						reference.addProperty(member_access);
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0018, currentFileName, i + 1));
+						throwCompileMessage(CompileMessage(SL0018E, currentFileName, i + 1));
 						return make_tuple(Constructor(), false);
 					}
 				}
@@ -1746,7 +1756,7 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 				}
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0018, currentFileName, i));
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, i));
 				return make_tuple(Constructor(), false);
 			}
 
@@ -1767,7 +1777,7 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 					continue;
 				}
 				if (findBracketClose(line, i + 1, 0) == -1) {
-					throwCompileMessage(CompileMessage(SL0027, currentFileName, line[i + 1].line));
+					throwCompileMessage(CompileMessage(SL0027E, currentFileName, line[i + 1].line));
 					return make_tuple(Constructor(), false);
 				}
 				Constructor parameter_constructor = get<Constructor>(get_parameter);
@@ -1825,7 +1835,7 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 
 			if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
 				if (depth != 0) {
-					throwCompileMessage(CompileMessage(SL0024, currentFileName, line[i].line));
+					throwCompileMessage(CompileMessage(SL0024E, currentFileName, line[i].line));
 					return make_tuple(Constructor(), false);
 				}
 
@@ -1856,20 +1866,20 @@ tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens
 	if (isDynamic) {
 		if (tokens[cursor].value == "dynamic") {
 			if (!vec_check_index(tokens, cursor + 1)) {
-				throwCompileMessage(CompileMessage(SL0037, currentFileName, tokens[cursor].line));
+				throwCompileMessage(CompileMessage(SL0037E, currentFileName, tokens[cursor].line));
 				return make_tuple(Constructor(), false);
 			}
 
 			if (tokens[cursor + 1].value == "extern") {
 				if (!vec_check_index(tokens, cursor + 2)) {
-					throwCompileMessage(CompileMessage(SL0038, currentFileName, tokens[cursor + 1].line));
-					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 1].line));
+					throwCompileMessage(CompileMessage(SL0038E, currentFileName, tokens[cursor + 1].line));
+					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 1].line));
 					return make_tuple(Constructor(), false);
 				}
 
 				if (tokens[cursor + 2].type == TokenType::LITERAL) {
 					if (!vec_check_index(tokens, cursor + 3)) {
-						throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 3].line));
+						throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 3].line));
 						return make_tuple(Constructor(), false);
 					}
 
@@ -1880,7 +1890,7 @@ tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens
 						return make_tuple(external_function, true);
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 3].line));
+						throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 3].line));
 						return make_tuple(Constructor(), false);
 					}
 				}
@@ -1891,12 +1901,12 @@ tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens
 					return make_tuple(external_function, true);
 				}
 				else {
-					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 2].line));
+					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 2].line));
 					return make_tuple(Constructor(), false);
 				}
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0037, currentFileName, tokens[cursor + 1].line));
+				throwCompileMessage(CompileMessage(SL0037E, currentFileName, tokens[cursor + 1].line));
 				return make_tuple(Constructor(), false);
 			}
 		}
@@ -1904,14 +1914,14 @@ tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens
 	else {
 		if (tokens[cursor].value == "extern") {
 			if (!vec_check_index(tokens, cursor + 1)) {
-				throwCompileMessage(CompileMessage(SL0038, currentFileName, tokens[cursor].line));
-				throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor].line));
+				throwCompileMessage(CompileMessage(SL0038E, currentFileName, tokens[cursor].line));
+				throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor].line));
 				return make_tuple(Constructor(), false);
 			}
 
 			if (tokens[cursor + 1].type == TokenType::LITERAL) {
 				if (!vec_check_index(tokens, cursor + 2)) {
-					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 2].line));
+					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 2].line));
 					return make_tuple(Constructor(), false);
 				}
 
@@ -1922,16 +1932,16 @@ tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens
 					return make_tuple(external_function, true);
 				}
 				else {
-					throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 2].line));
+					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 2].line));
 					return make_tuple(Constructor(), false);
 				}
 			}
 			else if (tokens[cursor + 1].value == "func") {
-				throwCompileMessage(CompileMessage(SL0038, currentFileName, tokens[cursor + 1].line));
+				throwCompileMessage(CompileMessage(SL0038E, currentFileName, tokens[cursor + 1].line));
 				return make_tuple(Constructor(), false);
 			}
 			else {
-				throwCompileMessage(CompileMessage(SL0039, currentFileName, tokens[cursor + 1].line));
+				throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 1].line));
 				return make_tuple(Constructor(), false);
 			}
 		}
@@ -2006,11 +2016,58 @@ int SlentCompiler::findNextSemicolon(vector<Token> tokens, int cursor) {
 }
 
 bool checkAST(Constructor ast) {
+	for (auto& class_node : ast.getProperties()) {
+		Constructor members_node = class_node.getProperty("members");
 
+
+
+		for (auto& member : members_node.getProperties()) {
+			if (member.getName() == "constructor") {
+				Constructor parameters_node = member.getProperty("parameters");
+				Constructor body_node = member.getProperty("body");
+
+				vector<string> param_names;
+				for (auto& parameter : parameters_node.getProperties()) {
+
+				}
+			}
+			else if (member.getName() == "variable_c") {
+
+			}
+			else if (member.getName() == "function_c") {
+
+			}
+		}
+	}
+
+	return true;
+}
+
+Constructor SlentCompiler::ast_getFunction(Constructor ast, string name) {
+	for (auto& class_node : ast.getProperties()) {
+		Constructor members_node = class_node.getProperty("members");
+
+		for (auto& member : members_node.getProperties()) {
+			if (member.getName() == "function_c") {
+				return member;
+			}
+		}
+	}
 }
 
 string SlentCompiler::bytecode(Constructor ast) {
-	return "";
+	vector<string> commands;
+
+	Constructor function = ast_getFunction(ast, "main");
+	for (auto& body_line : function.getProperty("body").getProperties()) {
+
+	}
+
+	string bytecode = "";
+	for (auto& command : commands) {
+		bytecode += command;
+	}
+	return bytecode;
 }
 
 void SlentCompiler::optimize() {
@@ -2024,6 +2081,7 @@ void SlentCompiler::throwCompileMessage(CompileMessage compileMessage) {
 		case MessageType::ERROR:
 			type = "Error";
 			color = RED;
+			_error = true;
 			break;
 		case MessageType::WARNING:
 			type = "Warning";
@@ -2098,6 +2156,8 @@ void SlentCompiler::AddFile(string file_name, string code) {
 }
 
 void SlentCompiler::Compile() {
+	_error = false;
+
 	vector<string> no_comment_codes;
 
 	Constructor module_tree;
@@ -2219,4 +2279,8 @@ void SlentCompiler::Compile() {
 			cout << AST.toPrettyString() << endl;
 		}
 	}
+}
+
+bool SlentCompiler::compileError() {
+	return _error;
 }

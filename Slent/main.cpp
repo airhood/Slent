@@ -4,15 +4,13 @@
 
 using namespace std;
 
+//#define TEST
+
 int main(int argc, char** argv) {
+#ifndef TEST
 	Slent::SlentSystem system = Slent::SlentSystem();
 	system.Run(argc, argv);
-
-#ifdef RELEASE
-	return 0;
-#endif
-
-#ifdef _DEBUG
+#else
 	//string exampleCode;
 	string exampleCode = "class Foo {\n    var int moo: public;\n    var int foo: public;\n    \n    construct(int _moo, int _foo, int _boo) {\n        moo = _moo;\n        foo = _foo;\n        var boo = _boo + 1;\n        foo += boo;\n        string str = \"int\";\n }\n    \n    func ConvertTo16() -> string { \n        return Boo + 1;	\n }\n}\n\nclass Main{\n    \n    func main() { \n        Foo foo = new Foo(10, 7, 1); \n        foo.ConvertTo16(); \n        \n        string str = \"+\";\n        \n        if (true) {\n            \n        }\n    }\n}";
 	//string exampleCode = "#if LEL\n#endif\n#define TEST\n\n#if TEST\nimport Test.UnitTest.ITestable;\n#else\n#error \"test is required\"\n#endif\nimport System;\n\nclass Foo {\n    var public int moo;\n    var public int foo;\n    \n    construct(int _moo, int _foo, int _boo) {\n        moo = _moo;\n        foo = _foo;\n        var boo = _boo + 1;\n        foo += boo;\n        string str = \"int\";\n }\n    \n    func ConvertTo16() -> string { \n        return Boo + 1; \n }\n}\n\nclass Main{\n    \n    @Entry\n    func main() { \n        Foo foo = new Foo(10, 7, 1); \n        foo.ConvertTo16(); \n        \n        string str = \"+\";\n        \n        if (true) {\n            \n        }\n    }\n}";

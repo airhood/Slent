@@ -187,6 +187,8 @@ private:
     std::vector<std::tuple<std::string, std::string>> code_files;
     std::string currentFileName;
 
+    bool _error = false;
+
     std::vector<Token> getPreprocessorTokens(std::string code);
     std::string preprocess(Constructor module_tree, std::string code, std::vector<Macro> macros);
     std::vector<std::string> getImports(Constructor module_tree, std::vector<Token> tokens);
@@ -218,12 +220,15 @@ private:
 
     bool checkAST(Constructor ast);
 
+    Constructor ast_getFunction(Constructor ast, std::string name);
+
     std::string bytecode(Constructor ast);
     void optimize();
 
     void throwCompileMessage(CompileMessage compileMessage);
-    
+
 public:
     void AddFile(std::string file_name, std::string code);
     void Compile();
+    bool compileError();
 };

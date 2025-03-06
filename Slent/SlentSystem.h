@@ -19,13 +19,13 @@ namespace Slent {
 		void Run(int argc, char** argv);
 
 	private:
-		void LoadFiles();
+		void LoadFiles(std::string path);
 		void LoadConfigFile(std::filesystem::path configFilePath);
 		void LoadSourceFile(std::filesystem::path sourceFilePath);
 		
-		std::filesystem::path currentPath;
+		//std::filesystem::path currentPath;
 
 		SlentCompiler* compiler;
-
+		CompilerSetting setting;
 	};
 }

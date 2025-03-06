@@ -1,9 +1,14 @@
 typedef int address;
 
 #include "SlentVM.h"
+#include <vector>
+#include <sstream>
+#include <iostream>
 
 using namespace std;
 using namespace Slent;
+
+#define vec_check_index(vec, index) (vec.size() >= (index + 1))
 
 address MemoryManager::find_free_address() {
 	for (address i = 0; i < heap_size; i++) {
@@ -54,6 +59,85 @@ tuple<T, bool> MemoryManager::read_heap(int address) {
 	return make_tuple(*((T*)heap_memory[address]), true);
 }
 
+const int CODE_ERROR = -1;
+const int CODE_EXIT = -2;
+
+int BytecodeInterpreter::Interpret(vector<string> command) {
+	if (!vec_check_index(command, 1)) {
+		return CODE_ERROR;
+	}
+
+	if (command[0] == "goto") {
+		return stoi(command[1]);
+	}
+	else if (command[0] == "process") {
+		if (command[1] == "exit") {
+			return CODE_EXIT;
+		}
+	}
+	else {
+		return CODE_ERROR; // error
+	}
+}
+
+vector<string> split(string str, char Delimiter) {
+	istringstream iss(str);
+	string buffer;
+
+	vector<string> result;
+
+	while (getline(iss, buffer, Delimiter)) {
+		result.push_back(buffer);
+	}
+	return result;
+}
+
+void BytecodeInterpreter::RunBytecode(string bytecode) {
+	vector<string> lines = split(bytecode, '\n');
+	for (auto& line : lines) {
+		vector<string> tokens = split(bytecode, ':');
+		vector<string> command = split(tokens[0], ' ');
+		string filename = tokens[1];
+		string line = tokens[2];
+		int result_code = Interpret(command);
+		if (result_code == -1) {
+			throwRuntimeMessage(RuntimeMessage(VM_MessageType::ERROR, "Internal Error", filename, stoi(line)));
+			return;
+		}
+	}
+}
+
+string colorString(string str, int color) {
+	return string("\033[0;").append(to_string(color)).append("m").append(str).append("\033[0m");
+}
+
+void throwRuntimeMessage(RuntimeMessage runtimeMessage) {
+	string type;
+	int color;
+	switch (runtimeMessage.type) {
+		case VM_MessageType::ERROR:
+			type = "Error";
+			color = RED;
+			break;
+		case VM_MessageType::WARNING:
+			type = "Warning";
+			color = YELLOW;
+			break;
+		case VM_MessageType::MESSAGE:
+			type = "Message";
+			color = CYAN;
+			break;
+		default:
+			return;
+	}
+	string str = colorString(string("[").append(type).append("] ")
+		.append(runtimeMessage.message)
+		.append("(")
+		.append(":line ").append(to_string(runtimeMessage.line_index + 1))
+		.append(")"), color);
+	cout << str << endl;
+}
+
 void SlentVM::set_stack_size(int size) {
 	memory_manager->set_stack_size(size);
 }
@@ -64,4 +148,5 @@ void SlentVM::set_max_heap_size(int size) {
 
 void SlentVM::Run(string bytecode) {
 	memory_manager->start();
+	bytecode_interpreter->RunBytecode(bytecode);
 }
