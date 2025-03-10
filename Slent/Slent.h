@@ -197,7 +197,7 @@ private:
     std::string runMacro(Macro macro, std::vector<std::string> params);
 
     Constructor getModuleTree(std::string code);
-    Constructor getSubModuleTree(std::string code, Scope scope);
+    Constructor getSubModuleTree(std::vector<Token> tokens, Scope scope);
 
     int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
     std::vector<Token> lexer(std::string code);
@@ -217,10 +217,6 @@ private:
     int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);
     int findBracketClose(std::vector<Token> tokens, int cursor, int current_bracket);
     int findNextSemicolon(std::vector<Token> tokens, int cursor);
-
-    bool checkAST(Constructor ast);
-
-    Constructor ast_getFunction(Constructor ast, std::string name);
 
     std::string bytecode(Constructor ast);
     void optimize();

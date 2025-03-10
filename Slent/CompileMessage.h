@@ -55,6 +55,7 @@
 #define SL0038E MessageType::ERROR, "extern load target missing."
 #define SL0039E MessageType::ERROR, "extern link target missing."
 #define SL0040E MessageType::ERROR, "Functions outside class cannot have access modifier."
+#define SL0041E MessageType::ERROR, "'import' keyword can only be used at root scope."
 
 
 #elif COMPILER_MESSAGE_LANG == KOREAN

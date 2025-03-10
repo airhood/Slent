@@ -555,7 +555,7 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 					continue;
 				}
 
-				Constructor sub_modules = getSubModuleTree(code, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
+				Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
 				sub_modules.setName(tokens[i + 2].value);
 				root.addProperty(sub_modules);
 				root.addProperty("export", "1");
@@ -592,7 +592,7 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 				continue;
 			}
 
-			Constructor sub_modules = getSubModuleTree(code, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
+			Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
 			sub_modules.setName(tokens[i + 2].value);
 			root.addProperty(sub_modules);
 			root.addProperty("export", "0");
@@ -602,11 +602,10 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 	return root;
 }
 
-Constructor SlentCompiler::getSubModuleTree(string code, Scope scope) {
+Constructor SlentCompiler::getSubModuleTree(vector<Token> tokens, Scope scope) {
 	Constructor root = Constructor();
 	root.setName("sub_root");
-	vector<Token> tokens = getPreprocessorTokens(code);
-	for (int i = 0; i < tokens.size(); i++) {
+	for (int i = scope.start; i < scope.end; i++) {
 		if (tokens[i].value == "export") {
 			if (!vec_check_index(tokens, i + 1)) {
 				throwCompileMessage(CompileMessage(SL0028E, currentFileName, tokens[i].line));
@@ -644,7 +643,7 @@ Constructor SlentCompiler::getSubModuleTree(string code, Scope scope) {
 					continue;
 				}
 
-				Constructor sub_modules = getSubModuleTree(code, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
+				Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
 				sub_modules.setName(tokens[i + 2].value);
 				root.addProperty(sub_modules);
 				root.addProperty("export", "1");
@@ -681,7 +680,7 @@ Constructor SlentCompiler::getSubModuleTree(string code, Scope scope) {
 				continue;
 			}
 
-			Constructor sub_modules = getSubModuleTree(code, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
+			Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
 			sub_modules.setName(tokens[i + 2].value);
 			root.addProperty(sub_modules);
 			root.addProperty("export", "0");
@@ -743,12 +742,142 @@ vector<Token> SlentCompiler::lexer(string code) {
 Constructor SlentCompiler::parser(vector<Token> tokens) {
 	Constructor root = Constructor();
 	root.setName("root");
+	
+	Constructor exports = Constructor();
+	exports.setName("exports");
+
+	vector<string> currentModule;
+
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].value == "import") {
+			if (currentModule.size() != 0) {
+				throwCompileMessage(CompileMessage(SL0041E, currentFileName, tokens[i].line));
+				i = findNextSemicolon(tokens, i);
+				continue;
+			}
+
 			Constructor import = Constructor();
 			import.setName("import");
 			// TODO: Parse import
 			root.addProperty(import);
+		}
+		else if (tokens[i].value == "export") {
+			Constructor export_ = Constructor();
+
+			if (!vec_check_index(tokens, i + 1)) {
+				throwCompileMessage(CompileMessage(SL0028E, currentFileName, tokens[i].line));
+				break;
+			}
+
+			if (tokens[i + 1].value != "module") {
+				if (!vec_check_index(tokens, i + 2)) {
+					throwCompileMessage(CompileMessage(SL0029E, currentFileName, tokens[i + 1].line));
+					break;
+				}
+
+				if (tokens[i + 2].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i + 2].line));
+					continue;
+				}
+
+				if (!vec_check_index(tokens, i + 3)) {
+					throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 2].line));
+					break;
+				}
+
+				if (tokens[i + 3].value == "{") {
+					if (!vec_check_index(tokens, i + 4)) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 3].line));
+						continue;
+					}
+
+					if (findBraceClose(tokens, i + 4, 1) == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[tokens.size() - 1].line));
+						i = i + 3;
+						continue;
+					}
+
+					export_.setName("export");
+					string moduleTree = "";
+					for (auto& module_ : currentModule) {
+						if (moduleTree != "") moduleTree.append("/");
+						moduleTree.append(module_);
+					}
+					export_.setValue(moduleTree.append("/").append(tokens[i + 2].value));
+					i = i;
+				}
+				else if (tokens[i + 3].value == ";") {
+					export_.setName("export");
+					string moduleTree = "";
+					for (auto& module_ : currentModule) {
+						if (moduleTree != "") moduleTree.append("/");
+						moduleTree.append(module_);
+					}
+					export_.setValue(moduleTree.append("/").append(tokens[i + 2].value));
+					i = i + 3;
+				}
+				else {
+					throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 2].line));
+					i = i + 2;
+					continue;
+				}
+			}
+			else {
+				if (!vec_check_index(tokens, i + 2)) {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 1].line));
+					break;
+				}
+
+				if (tokens[i + 2].value != ";") {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
+					break;
+				}
+
+				export_.setName("export");
+				string moduleTree = "";
+				for (auto& module_ : currentModule) {
+					if (moduleTree != "") moduleTree.append("/");
+					moduleTree.append(module_);
+				}
+				moduleTree.append("/").append(tokens[i + 1].value);
+				export_.setValue(moduleTree);
+			}
+		}
+		else if (tokens[i].value == "module") {
+			if (!vec_check_index(tokens, i + 1)) {
+				throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i].line));
+				break;
+			}
+
+			if (tokens[i + 1].type != TokenType::IDENTIFIER) {
+				throwCompileMessage(CompileMessage(SL0030E, currentFileName, tokens[i + 1].line));
+				continue;
+			}
+
+			if (!vec_check_index(tokens, i + 2)) {
+				throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 1].line));
+				break;
+			}
+
+			if (tokens[i + 2].value != "{") {
+				throwCompileMessage(CompileMessage(SL0031E, currentFileName, tokens[i + 1].line));
+				i = i + 1;
+				continue;
+			}
+
+			if (!vec_check_index(tokens, i + 3)) {
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 2].line));
+				continue;
+			}
+
+			if (findBraceClose(tokens, i + 3, 1) == -1) {
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[tokens.size() - 1].line));
+				i = i + 2;
+				continue;
+			}
+
+			currentModule.push_back(tokens[i + 1].value);
+			i = i + 2;
 		}
 		else if (tokens[i].value == "dynamic") {
 			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
@@ -814,6 +943,9 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 			Constructor class_define = get<Constructor>(getClass_result);
 			root.addProperty(class_define);
 			continue;
+		}
+		else if (tokens[i].value == "}") {
+			currentModule.erase(currentModule.end() - 1);
 		}
 		else {
 			cout << tokens[i].value << endl;
@@ -2015,53 +2147,10 @@ int SlentCompiler::findNextSemicolon(vector<Token> tokens, int cursor) {
 	}
 }
 
-bool checkAST(Constructor ast) {
-	for (auto& class_node : ast.getProperties()) {
-		Constructor members_node = class_node.getProperty("members");
-
-
-
-		for (auto& member : members_node.getProperties()) {
-			if (member.getName() == "constructor") {
-				Constructor parameters_node = member.getProperty("parameters");
-				Constructor body_node = member.getProperty("body");
-
-				vector<string> param_names;
-				for (auto& parameter : parameters_node.getProperties()) {
-
-				}
-			}
-			else if (member.getName() == "variable_c") {
-
-			}
-			else if (member.getName() == "function_c") {
-
-			}
-		}
-	}
-
-	return true;
-}
-
-Constructor SlentCompiler::ast_getFunction(Constructor ast, string name) {
-	for (auto& class_node : ast.getProperties()) {
-		Constructor members_node = class_node.getProperty("members");
-
-		for (auto& member : members_node.getProperties()) {
-			if (member.getName() == "function_c") {
-				return member;
-			}
-		}
-	}
-}
-
 string SlentCompiler::bytecode(Constructor ast) {
 	vector<string> commands;
 
-	Constructor function = ast_getFunction(ast, "main");
-	for (auto& body_line : function.getProperty("body").getProperties()) {
 
-	}
 
 	string bytecode = "";
 	for (auto& command : commands) {
