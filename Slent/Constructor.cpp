@@ -8,18 +8,18 @@ void Constructor::setName(std::string name) {
     this->name = name;
 }
 
-Constructor Constructor::getProperty(int index) const {
-    if ((index + 1) > properties.size()) return Constructor();
+Constructor* Constructor::getProperty(int index) const {
+    if ((index + 1) > properties.size()) return new Constructor();
     return properties.at(index);
 }
 
-Constructor Constructor::getProperty(std::string name) const {
+Constructor* Constructor::getProperty(std::string name) const {
     for (int i = 0; i < properties.size(); i++) {
-        if (properties.at(i).getName() == name) {
+        if (properties.at(i)->getName() == name) {
             return properties.at(i);
         }
     }
-    return Constructor();
+    return new Constructor();
 }
 
 bool Constructor::propertyExist(int index) const {
@@ -28,26 +28,26 @@ bool Constructor::propertyExist(int index) const {
 
 bool Constructor::propertyExist(std::string name) const {
     for (int i = 0; i < properties.size(); i++) {
-        if (properties.at(i).getName() == name) {
+        if (properties.at(i)->getName() == name) {
             return true;
         }
     }
     return false;
 }
 
-std::vector<Constructor> Constructor::getProperties() const {
+std::vector<Constructor*> Constructor::getProperties() const {
     return properties;
 }
 
 void Constructor::addProperty(std::string name, std::string value) {
     this->value = "[object]";
-    Constructor valueConstructor = Constructor();
-    valueConstructor.setName(name);
-    valueConstructor.setValue(value);
+    Constructor* valueConstructor = new Constructor();
+    valueConstructor->setName(name);
+    valueConstructor->setValue(value);
     properties.push_back(valueConstructor);
 }
 
-void Constructor::addProperty(Constructor property) {
+void Constructor::addProperty(Constructor* property) {
     value = "[object]";
     properties.push_back(property);
 }
@@ -75,7 +75,7 @@ std::string Constructor::toString() const {
             str.append(",");
         }
         
-        str.append(properties.at(i).toString());
+        str.append(properties.at(i)->toString());
     }
     str.append("}");
     return str;
@@ -103,7 +103,7 @@ std::string Constructor::toPrettyString(int depth) const {
             str.append(",\n");
         }
         
-        str.append(properties.at(i).toPrettyString(depth + 1));
+        str.append(properties.at(i)->toPrettyString(depth + 1));
     }
     str.append("\n");
     for (int i = 0; i < depth; i++) {

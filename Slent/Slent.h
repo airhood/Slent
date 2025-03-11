@@ -190,35 +190,35 @@ private:
     bool _error = false;
 
     std::vector<Token> getPreprocessorTokens(std::string code);
-    std::string preprocess(Constructor module_tree, std::string code, std::vector<Macro> macros);
-    std::vector<std::string> getImports(Constructor module_tree, std::vector<Token> tokens);
-    std::vector<Macro> getMacros(Constructor module_tree, std::vector<std::string> codes);
+    std::string preprocess(Constructor* module_tree, std::string code, std::vector<Macro> macros);
+    std::vector<std::string> getImports(Constructor* module_tree, std::vector<Token> tokens);
+    std::vector<Macro> getMacros(Constructor* module_tree, std::vector<std::string> codes);
     std::string runMacros(std::string code, std::vector<Macro> macros);
     std::string runMacro(Macro macro, std::vector<std::string> params);
 
-    Constructor getModuleTree(std::string code);
-    Constructor getSubModuleTree(std::vector<Token> tokens, Scope scope);
+    Constructor* getModuleTree(std::string code);
+    Constructor* getSubModuleTree(std::vector<Token> tokens, Scope scope);
 
     int t_find_next(std::vector<Token> tokens, int cursor, std::vector<std::string> target);
     std::vector<Token> lexer(std::string code);
 
-    Constructor parser(std::vector<Token> tokens);
-    std::tuple<Constructor, bool> getFunction(std::vector<Token> tokens, Scope scope, bool includeBody);
-    std::tuple<Constructor, int, bool> getClass(std::vector<Token> tokens, int cursor);
-    Constructor getClassMembers(std::vector<Token> tokens, Scope scope);
-    std::vector<Constructor> getClassConstructors(std::vector<Token> tokens, Scope scope);
-    std::vector<Constructor> getClassVariables(std::vector<Token> tokens, Scope scope);
-    std::vector<Constructor> getClassFunctions(std::vector<Token> tokens, Scope scope, bool includeBody);
-    Constructor getFunctionBody(std::vector<Token> tokens, Scope scope);
-    std::tuple<Constructor, bool> getExpression(std::vector<Token> line, int start_index, int depth);
-    std::tuple<Constructor, bool> getExternalFunction(std::vector<Token> tokens, int cursor, bool isDynamic);
+    Constructor* parser(std::vector<Token> tokens);
+    std::tuple<Constructor*, bool> getFunction(std::vector<Token> tokens, Scope scope, bool includeBody);
+    std::tuple<Constructor*, int, bool> getClass(std::vector<Token> tokens, int cursor);
+    Constructor* getClassMembers(std::vector<Token> tokens, Scope scope);
+    std::vector<Constructor*> getClassConstructors(std::vector<Token> tokens, Scope scope);
+    std::vector<Constructor*> getClassVariables(std::vector<Token> tokens, Scope scope);
+    std::vector<Constructor*> getClassFunctions(std::vector<Token> tokens, Scope scope, bool includeBody);
+    Constructor* getFunctionBody(std::vector<Token> tokens, Scope scope);
+    std::tuple<Constructor*, bool> getExpression(std::vector<Token> line, int start_index, int depth);
+    std::tuple<Constructor*, bool> getExternalFunction(std::vector<Token> tokens, int cursor, bool isDynamic);
     std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
     bool check_type(std::string type);
     int findBraceClose(std::vector<Token> tokens, int cursor, int current_brace);
     int findBracketClose(std::vector<Token> tokens, int cursor, int current_bracket);
     int findNextSemicolon(std::vector<Token> tokens, int cursor);
 
-    std::string bytecode(Constructor ast);
+    std::string bytecode(Constructor* ast);
     void optimize();
 
     void throwCompileMessage(CompileMessage compileMessage);

@@ -93,7 +93,7 @@ vector<Token> SlentCompiler::getPreprocessorTokens(string code) {
 	return tokens;
 }
 
-string SlentCompiler::preprocess(Constructor module_tree, string code, vector<Macro> macros) {
+string SlentCompiler::preprocess(Constructor* module_tree, string code, vector<Macro> macros) {
 	vector<Token> tokens = getPreprocessorTokens(code);
 	vector<string> imports = getImports(module_tree, tokens);
 	string processed_code = runMacros(code, macros);
@@ -101,7 +101,7 @@ string SlentCompiler::preprocess(Constructor module_tree, string code, vector<Ma
 	return processed_code;
 }
 
-vector<string> SlentCompiler::getImports(Constructor module_tree, vector<Token> tokens) {
+vector<string> SlentCompiler::getImports(Constructor* module_tree, vector<Token> tokens) {
 	vector<string> imports;
 
 	for (int i = 0; i < tokens.size(); i++) {
@@ -113,15 +113,15 @@ vector<string> SlentCompiler::getImports(Constructor module_tree, vector<Token> 
 
 			string import_temp = "";
 
-			Constructor current_depth_module = module_tree;
+			Constructor* current_depth_module = Constructor::copy(module_tree);
 			int j = i + 1;
 			while (true) {
 				if (tokens[j].type == TokenType::IDENTIFIER) {
-					if (!current_depth_module.propertyExist(tokens[j].value)) {
+					if (!current_depth_module->propertyExist(tokens[j].value)) {
 						throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j].line));
 						goto err_1;
 					}
-					current_depth_module = current_depth_module.getProperty(tokens[j].value);
+					current_depth_module = current_depth_module->getProperty(tokens[j].value);
 					import_temp.append(tokens[j].value.append("::"));
 				}
 				else {
@@ -158,7 +158,7 @@ vector<string> SlentCompiler::getImports(Constructor module_tree, vector<Token> 
 	return imports;
 }
 
-vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> codes) {
+vector<Macro> SlentCompiler::getMacros(Constructor* module_tree, vector<string> codes) {
 	vector<Macro> macros;
 	for (auto& code : codes) {
 		vector<string> lines = split(code, '\n');
@@ -213,15 +213,15 @@ vector<Macro> SlentCompiler::getMacros(Constructor module_tree, vector<string> c
 						break;
 					}
 
-					Constructor current_depth_module = module_tree;
+					Constructor* current_depth_module = Constructor::copy(module_tree);
 					int j = i + 6;
 					while (true) {
 						if (tokens[j].type == TokenType::IDENTIFIER) {
-							if (!current_depth_module.propertyExist(tokens[j].value)) {
+							if (!current_depth_module->propertyExist(tokens[j].value)) {
 								throwCompileMessage(CompileMessage(SL0033E, currentFileName, tokens[j].line));
 								goto err_2;
 							}
-							current_depth_module = current_depth_module.getProperty(tokens[j].value);
+							current_depth_module = current_depth_module->getProperty(tokens[j].value);
 							macro.macro_module.append(tokens[j].value.append("::"));
 						}
 						else {
@@ -513,9 +513,9 @@ string SlentCompiler::runMacro(Macro macro, vector<string> params_val) {
 	return result;
 }
 
-Constructor SlentCompiler::getModuleTree(std::string code) {
-	Constructor root = Constructor();
-	root.setName("root");
+Constructor* SlentCompiler::getModuleTree(std::string code) {
+	Constructor* root = new Constructor();
+	root->setName("root");
 	vector<Token> tokens = getPreprocessorTokens(code);
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].value == "export") {
@@ -555,10 +555,10 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 					continue;
 				}
 
-				Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
-				sub_modules.setName(tokens[i + 2].value);
-				root.addProperty(sub_modules);
-				root.addProperty("export", "1");
+				Constructor* sub_modules = getSubModuleTree(tokens, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
+				sub_modules->setName(tokens[i + 2].value);
+				root->addProperty(sub_modules);
+				root->addProperty("export", "1");
 			}
 		}
 		else if (tokens[i].value == "module") {
@@ -592,19 +592,19 @@ Constructor SlentCompiler::getModuleTree(std::string code) {
 				continue;
 			}
 
-			Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
-			sub_modules.setName(tokens[i + 2].value);
-			root.addProperty(sub_modules);
-			root.addProperty("export", "0");
+			Constructor* sub_modules = getSubModuleTree(tokens, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
+			sub_modules->setName(tokens[i + 2].value);
+			root->addProperty(sub_modules);
+			root->addProperty("export", "0");
 		}
 	}
 
 	return root;
 }
 
-Constructor SlentCompiler::getSubModuleTree(vector<Token> tokens, Scope scope) {
-	Constructor root = Constructor();
-	root.setName("sub_root");
+Constructor* SlentCompiler::getSubModuleTree(vector<Token> tokens, Scope scope) {
+	Constructor* root = new Constructor();
+	root->setName("sub_root");
 	for (int i = scope.start; i < scope.end; i++) {
 		if (tokens[i].value == "export") {
 			if (!vec_check_index(tokens, i + 1)) {
@@ -643,10 +643,10 @@ Constructor SlentCompiler::getSubModuleTree(vector<Token> tokens, Scope scope) {
 					continue;
 				}
 
-				Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
-				sub_modules.setName(tokens[i + 2].value);
-				root.addProperty(sub_modules);
-				root.addProperty("export", "1");
+				Constructor* sub_modules = getSubModuleTree(tokens, Scope(i + 4, findBraceClose(tokens, i + 4, 1) - 1));
+				sub_modules->setName(tokens[i + 2].value);
+				root->addProperty(sub_modules);
+				root->addProperty("export", "1");
 			}
 		}
 		else if (tokens[i].value == "module") {
@@ -680,10 +680,10 @@ Constructor SlentCompiler::getSubModuleTree(vector<Token> tokens, Scope scope) {
 				continue;
 			}
 
-			Constructor sub_modules = getSubModuleTree(tokens, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
-			sub_modules.setName(tokens[i + 2].value);
-			root.addProperty(sub_modules);
-			root.addProperty("export", "0");
+			Constructor* sub_modules = getSubModuleTree(tokens, Scope(i + 3, findBraceClose(tokens, i + 3, 1) - 1));
+			sub_modules->setName(tokens[i + 2].value);
+			root->addProperty(sub_modules);
+			root->addProperty("export", "0");
 		}
 	}
 
@@ -739,14 +739,14 @@ vector<Token> SlentCompiler::lexer(string code) {
 	return tokens;
 }
 
-Constructor SlentCompiler::parser(vector<Token> tokens) {
-	Constructor root = Constructor();
-	root.setName("root");
-	
-	Constructor exports = Constructor();
-	exports.setName("exports");
+Constructor* SlentCompiler::parser(vector<Token> tokens) {
+	Constructor* root = new Constructor();
+	root->setName("root");
 
 	vector<string> currentModule;
+
+	vector<Constructor*> current_module_body;
+	current_module_body.push_back(root);
 
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].value == "import") {
@@ -756,13 +756,36 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 				continue;
 			}
 
-			Constructor import = Constructor();
-			import.setName("import");
-			// TODO: Parse import
-			root.addProperty(import);
+			if (!vec_check_index(tokens, i + 1)) {
+				throwCompileMessage(CompileMessage(SL0042E, currentFileName, tokens[i + 1].line));
+				break;
+			}
+
+			if (tokens[i + 1].type != TokenType::IDENTIFIER) {
+				throwCompileMessage(CompileMessage(SL0042E, currentFileName, tokens[i + 1].line));
+				i = findNextSemicolon(tokens, i + 1);
+				continue;
+			}
+
+			if (!vec_check_index(tokens, i + 2)) {
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 1].line));
+				break;
+			}
+
+			if (tokens[i + 2].value != ";") {
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 1].line));
+				i = findNextSemicolon(tokens, i + 2);
+				continue;
+			}
+
+			Constructor* import = new Constructor();
+			import->setName("import");
+			import->setValue(tokens[i + 1].value);
+			root->addProperty(import);
+			i = i + 2;
 		}
 		else if (tokens[i].value == "export") {
-			Constructor export_ = Constructor();
+			Constructor* export_ = new Constructor();
 
 			if (!vec_check_index(tokens, i + 1)) {
 				throwCompileMessage(CompileMessage(SL0028E, currentFileName, tokens[i].line));
@@ -797,23 +820,23 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 						continue;
 					}
 
-					export_.setName("export");
+					export_->setName("export");
 					string moduleTree = "";
 					for (auto& module_ : currentModule) {
 						if (moduleTree != "") moduleTree.append("/");
 						moduleTree.append(module_);
 					}
-					export_.setValue(moduleTree.append("/").append(tokens[i + 2].value));
+					export_->setValue(moduleTree.append("/").append(tokens[i + 2].value));
 					i = i;
 				}
 				else if (tokens[i + 3].value == ";") {
-					export_.setName("export");
+					export_->setName("export");
 					string moduleTree = "";
 					for (auto& module_ : currentModule) {
 						if (moduleTree != "") moduleTree.append("/");
 						moduleTree.append(module_);
 					}
-					export_.setValue(moduleTree.append("/").append(tokens[i + 2].value));
+					export_->setValue(moduleTree.append("/").append(tokens[i + 2].value));
 					i = i + 3;
 				}
 				else {
@@ -833,14 +856,14 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 					break;
 				}
 
-				export_.setName("export");
+				export_->setName("export");
 				string moduleTree = "";
 				for (auto& module_ : currentModule) {
 					if (moduleTree != "") moduleTree.append("/");
 					moduleTree.append(module_);
 				}
 				moduleTree.append("/").append(tokens[i + 1].value);
-				export_.setValue(moduleTree);
+				export_->setValue(moduleTree);
 			}
 		}
 		else if (tokens[i].value == "module") {
@@ -877,27 +900,38 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 			}
 
 			currentModule.push_back(tokens[i + 1].value);
+
+			Constructor* new_module = new Constructor();
+			new_module->setName("module");
+			Constructor* new_module_body = new Constructor();
+			new_module_body->setName("body");
+			new_module->addProperty("name", tokens[i + 1].value);
+			new_module->addProperty(new_module_body);
+
+			root->addProperty(new_module);
+			current_module_body.push_back(new_module_body);
+
 			i = i + 2;
 		}
 		else if (tokens[i].value == "dynamic") {
-			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
+			tuple<Constructor*, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
 			if (!get<bool>(getExternalFunction_result)) {
 				i = findNextSemicolon(tokens, i);
 				continue;
 			}
-			Constructor external_function = get<Constructor>(getExternalFunction_result);
-			root.addProperty(external_function);
+			Constructor* external_function = get<Constructor*>(getExternalFunction_result);
+			current_module_body.back()->addProperty(external_function);
 			i = findNextSemicolon(tokens, i);
 			continue;
 		}
 		else if (tokens[i].value == "extern") {
-			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, false);
+			tuple<Constructor*, bool> getExternalFunction_result = getExternalFunction(tokens, i, false);
 			if (!get<bool>(getExternalFunction_result)) {
 				i = findNextSemicolon(tokens, i);
 				continue;
 			}
-			Constructor external_function = get<Constructor>(getExternalFunction_result);
-			root.addProperty(external_function);
+			Constructor* external_function = get<Constructor*>(getExternalFunction_result);
+			current_module_body.back()->addProperty(external_function);
 			i = findNextSemicolon(tokens, i);
 			continue;
 		}
@@ -921,31 +955,32 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 				}
 			}
 
-			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, functionBodyEnd), true);
+			tuple<Constructor*, bool> getFunction_result = getFunction(tokens, Scope(i, functionBodyEnd), true);
 			if (!get<bool>(getFunction_result)) {
 				i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 				continue;
 			}
-			Constructor function = get<Constructor>(getFunction_result);
-			function.setName("function_g");
-			function.addProperty("access_modifier", "");
-			root.addProperty(function);
+			Constructor* function = get<Constructor*>(getFunction_result);
+			function->setName("function_g");
+			function->addProperty("access_modifier", "");
+			current_module_body.back()->addProperty(function);
 			i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 			continue;
 		}
 		else if (tokens[i].value == "class") {
-			tuple<Constructor, int, bool> getClass_result = getClass(tokens, i);
+			tuple<Constructor*, int, bool> getClass_result = getClass(tokens, i);
 			i = get<int>(getClass_result);
 			if (!get<bool>(getClass_result)) {
 				i = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
 				continue;
 			}
-			Constructor class_define = get<Constructor>(getClass_result);
-			root.addProperty(class_define);
+			Constructor* class_define = get<Constructor*>(getClass_result);
+			current_module_body.back()->addProperty(class_define);
 			continue;
 		}
 		else if (tokens[i].value == "}") {
 			currentModule.erase(currentModule.end() - 1);
+			current_module_body.erase(current_module_body.end() - 1);
 		}
 		else {
 			cout << tokens[i].value << endl;
@@ -957,44 +992,44 @@ Constructor SlentCompiler::parser(vector<Token> tokens) {
 	return root;
 }
 
-tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope scope, bool includeBody) {
+tuple<Constructor*, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope scope, bool includeBody) {
 	int i = scope.start;
 	if (tokens[i].value == "func") {
 		if ((i + 1) > scope.end) {
 			throwCompileMessage(CompileMessage(SL0019E, currentFileName, tokens[i].line));
-			return make_tuple(Constructor(), false);
+			return make_tuple(new Constructor(), false);
 		}
 
 		if (tokens[i + 1].type != TokenType::IDENTIFIER) {
 			throwCompileMessage(CompileMessage(SL0020E, currentFileName, tokens[i + 1].line));
-			return make_tuple(Constructor(), false);
+			return make_tuple(new Constructor(), false);
 		}
 
-		Constructor function = Constructor();
-		function.setName("function");
-		function.addProperty("name", tokens[i + 1].value);
+		Constructor* function = new Constructor();
+		function->setName("function");
+		function->addProperty("name", tokens[i + 1].value);
 
 		if ((i + 2) > scope.end) {
 			throwCompileMessage(CompileMessage(SL0011E, currentFileName, tokens[i + 1].line));
-			return make_tuple(Constructor(), false);
+			return make_tuple(new Constructor(), false);
 		}
 
 		if (tokens[i + 2].value != "(") {
 			throwCompileMessage(CompileMessage(SL0011E, currentFileName, tokens[i + 2].line));
-			return make_tuple(Constructor(), false);
+			return make_tuple(new Constructor(), false);
 		}
 		i = i + 2;
 
 		// get function parameters
-		Constructor parameters = Constructor();
-		parameters.setName("parameters");
+		Constructor* parameters = new Constructor();
+		parameters->setName("parameters");
 
 		int k = 0;
 
 		bool error = false;
 
 		if (tokens[i + 1].value == ")") {
-			function.addProperty("parameters", "");
+			function->addProperty("parameters", "");
 			goto get_parameter_finished;
 		}
 
@@ -1028,39 +1063,39 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 
 			string type = tokens[j].value;
 			string name = tokens[j + 1].value;
-			Constructor param = Constructor();
-			param.setName(string("param").append(to_string(k)));
-			param.addProperty("type", type);
-			param.addProperty("name", name);
-			parameters.addProperty(param);
+			Constructor* param = new Constructor();
+			param->setName(string("param").append(to_string(k)));
+			param->addProperty("type", type);
+			param->addProperty("name", name);
+			parameters->addProperty(param);
 			k++;
 			j = j + 2;
 		}
 
-		if (error) return make_tuple(Constructor(), false);
+		if (error) return make_tuple(new Constructor(), false);
 
-		function.addProperty(parameters);
+		function->addProperty(parameters);
 	get_parameter_finished:
 
 		i = t_find_next(tokens, i + 1, vector<string> {")"});
 
 		if ((i + 2) > scope.end) {
 			throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i].line));
-			return make_tuple(Constructor(), false);
+			return make_tuple(new Constructor(), false);
 		}
 
 		if (tokens[i + 1].value != "{") {
 			if (tokens[i + 1].value == "->") {
 				if ((i + 3) > scope.end) {
 					throwCompileMessage(CompileMessage(SL0021E, currentFileName, tokens[i + 2].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
 
 				if ((tokens[i + 2].type != TokenType::KEYWORD) && (tokens[i + 2].type != TokenType::IDENTIFIER)) {
 					throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 3].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
-				function.addProperty("return_type", tokens[i + 2].value);
+				function->addProperty("return_type", tokens[i + 2].value);
 				if (tokens[i + 3].value != "{") {
 					throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i + 3].line));
 				}
@@ -1068,27 +1103,27 @@ tuple<Constructor, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope 
 				goto return_type_done;
 			}
 			throwCompileMessage(CompileMessage(SL0022E, currentFileName, tokens[i].line));
-			return make_tuple(Constructor(), false);
+			return make_tuple(new Constructor(), false);
 		}
 		// tokens[i + 1].value == "{" => true
 		i = i + 1;
 
-		function.addProperty("return_type", "");
+		function->addProperty("return_type", "");
 
 	return_type_done:
 
 		if (includeBody) {
-			Constructor function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
-			function.addProperty(function_body);
+			Constructor* function_body = getFunctionBody(tokens, Scope(i + 1, findBraceClose(tokens, i + 2, 1) - 1));
+			function->addProperty(function_body);
 		}
 
 		return make_tuple(function, true);
 	}
 }
 
-tuple<Constructor, int, bool> SlentCompiler::getClass(vector<Token> tokens, int cursor) {
-	Constructor class_define = Constructor();
-	class_define.setName("class");
+tuple<Constructor*, int, bool> SlentCompiler::getClass(vector<Token> tokens, int cursor) {
+	Constructor* class_define = new Constructor();
+	class_define->setName("class");
 	if (!vec_check_index(tokens, cursor + 1)) {
 		throwCompileMessage(CompileMessage(SL0008E, currentFileName, tokens[cursor].line));
 	}
@@ -1096,50 +1131,50 @@ tuple<Constructor, int, bool> SlentCompiler::getClass(vector<Token> tokens, int 
 		throwCompileMessage(CompileMessage(SL0009E, currentFileName, tokens[cursor + 1].line));
 		return make_tuple(class_define, cursor, false);
 	}
-	class_define.addProperty("name", tokens[cursor + 1].value);
+	class_define->addProperty("name", tokens[cursor + 1].value);
 	if (tokens[cursor + 2].value != "{") {
 		throwCompileMessage(CompileMessage(SL0010E, currentFileName, tokens[cursor + 1].line));
 		return make_tuple(class_define, cursor + 1, false);
 	}
-	Constructor members = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
-	class_define.addProperty(members);
+	Constructor* members = getClassMembers(tokens, Scope(cursor + 3, findBraceClose(tokens, cursor + 3, 1) - 1));
+	class_define->addProperty(members);
 
 	return make_tuple(class_define, findBraceClose(tokens, cursor + 3, 1), true);
 }
 
-Constructor SlentCompiler::getClassMembers(vector<Token> tokens, Scope scope) {
-	Constructor classMembers = Constructor();
-	classMembers.setName("members");
-	vector<Constructor> class_constructor = getClassConstructors(tokens, scope);
-	for (int i = 0; i < class_constructor.size(); i++) {
-		classMembers.addProperty(class_constructor[i]);
+Constructor* SlentCompiler::getClassMembers(vector<Token> tokens, Scope scope) {
+	Constructor* classMembers = new Constructor();
+	classMembers->setName("members");
+	vector<Constructor*> class_constructors = getClassConstructors(tokens, scope);
+	for (int i = 0; i < class_constructors.size(); i++) {
+		classMembers->addProperty(class_constructors[i]);
 	}
-	vector<Constructor> class_variables = getClassVariables(tokens, scope);
+	vector<Constructor*> class_variables = getClassVariables(tokens, scope);
 	for (int i = 0; i < class_variables.size(); i++) {
-		classMembers.addProperty(class_variables[i]);
+		classMembers->addProperty(class_variables[i]);
 	}
-	vector<Constructor> class_functions = getClassFunctions(tokens, scope, true);
+	vector<Constructor*> class_functions = getClassFunctions(tokens, scope, true);
 	for (int i = 0; i < class_functions.size(); i++) {
-		classMembers.addProperty(class_functions[i]);
+		classMembers->addProperty(class_functions[i]);
 	}
 
 	return classMembers;
 }
 
-vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Scope scope) {
-	vector<Constructor> class_constructors;
+vector<Constructor*> SlentCompiler::getClassConstructors(vector<Token> tokens, Scope scope) {
+	vector<Constructor*> class_constructors;
 	for (int i = scope.start; i <= scope.end; i++) {
 		if (tokens[i].value == "construct") {
-			Constructor constructor = Constructor();
-			constructor.setName("constructor");
+			Constructor* constructor = new Constructor();
+			constructor->setName("constructor");
 
 			if (tokens[i + 1].value != "(") {
 				throwCompileMessage(CompileMessage(SL0011E, currentFileName, tokens[i + 4].line));
 				continue;
 			}
 
-			Constructor parameters = Constructor();
-			parameters.setName("parameters");
+			Constructor* parameters = new Constructor();
+			parameters->setName("parameters");
 			int k = 0;
 			for (int j = i + 2; j < findBracketClose(tokens, i + 2, 1); j++) {
 				if ((tokens[j].type != TokenType::KEYWORD) && (tokens[j].type != TokenType::IDENTIFIER)) {
@@ -1165,15 +1200,15 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 				}
 				string type = tokens[j].value;
 				string name = tokens[j + 1].value;
-				Constructor param = Constructor();
-				param.setName(string("param").append(to_string(k)));
-				param.addProperty("type", type);
-				param.addProperty("name", name);
-				parameters.addProperty(param);
+				Constructor* param = new Constructor();
+				param->setName(string("param").append(to_string(k)));
+				param->addProperty("type", type);
+				param->addProperty("name", name);
+				parameters->addProperty(param);
 				k++;
 				j = j + 2;
 			}
-			constructor.addProperty(parameters);
+			constructor->addProperty(parameters);
 
 			i = t_find_next(tokens, i + 2, vector<string> {")"});
 
@@ -1182,8 +1217,8 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 				continue;
 			}
 
-			Constructor constructor_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
-			constructor.addProperty(constructor_body);
+			Constructor* constructor_body = getFunctionBody(tokens, Scope(i + 2, findBraceClose(tokens, i + 2, 1) - 1));
+			constructor->addProperty(constructor_body);
 
 			class_constructors.push_back(constructor);
 		}
@@ -1192,8 +1227,8 @@ vector<Constructor>SlentCompiler::getClassConstructors(vector<Token> tokens, Sco
 	return class_constructors;
 }
 
-vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope scope) {
-	vector<Constructor> class_variables;
+vector<Constructor*> SlentCompiler::getClassVariables(vector<Token> tokens, Scope scope) {
+	vector<Constructor*> class_variables;
 	for (int i = scope.start; i <= scope.end; i++) {
 		if ((tokens[i].value == "construct") || (tokens[i].value == "func")) {
 			i = findBraceClose(tokens, t_find_next(tokens, i, vector<string> {"{"}), 0);
@@ -1201,8 +1236,8 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 		}
 
 		if (tokens[i].value == "var") {
-			Constructor variable = Constructor();
-			variable.setName("variable_c");
+			Constructor* variable = new Constructor();
+			variable->setName("variable_c");
 
 			if (!vec_check_index(tokens, i + 1)) {
 				throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
@@ -1233,15 +1268,15 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				int reference_offset = 0;
 
 				if (tokens[i + 3].value == "&") {
-					variable.addProperty("type", tokens[i + 1].value + "&");
+					variable->addProperty("type", tokens[i + 1].value + "&");
 					reference_offset = 1;
 				}
 				else {
-					variable.addProperty("type", tokens[i + 1].value);
+					variable->addProperty("type", tokens[i + 1].value);
 				}
 
-				variable.addProperty("nullable", "0");
-				variable.addProperty("name", tokens[i + 2].value);
+				variable->addProperty("nullable", "0");
+				variable->addProperty("name", tokens[i + 2].value);
 
 				int access_modifier_offset = 0;
 
@@ -1253,15 +1288,15 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 					}
 
 					if (tokens[i + 4 + reference_offset].value == "public") {
-						variable.addProperty("access_modifier", "public");
+						variable->addProperty("access_modifier", "public");
 						access_modifier_offset = 2;
 					}
 					else if (tokens[i + 4 + reference_offset].value == "protected") {
-						variable.addProperty("access_modifier", "protected");
+						variable->addProperty("access_modifier", "protected");
 						access_modifier_offset = 2;
 					}
 					else if (tokens[i + 4 + reference_offset].value == "private") {
-						variable.addProperty("access_modifier", "private");
+						variable->addProperty("access_modifier", "private");
 						access_modifier_offset = 2;
 					}
 					else {
@@ -1274,7 +1309,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				k = i + 2 + reference_offset + access_modifier_offset;
 			}
 			else if (tokens[i + 2].value == "?") {
-				variable.addProperty("nullable", "1");
+				variable->addProperty("nullable", "1");
 
 				if (!vec_check_index(tokens, 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
@@ -1284,11 +1319,11 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				int reference_offset = 0;
 
 				if (tokens[i + 3].value == "&") {
-					variable.addProperty("type", tokens[i + 1].value + "&");
+					variable->addProperty("type", tokens[i + 1].value + "&");
 					reference_offset = 1;
 				}
 				else {
-					variable.addProperty("type", tokens[i + 1].value);
+					variable->addProperty("type", tokens[i + 1].value);
 				}
 
 				if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
@@ -1296,7 +1331,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 					i = findNextSemicolon(tokens, i + 3 + reference_offset);
 					continue;
 				}
-				variable.addProperty("name", tokens[i + 3 + reference_offset].value);
+				variable->addProperty("name", tokens[i + 3 + reference_offset].value);
 
 				int access_modifier_offset = 0;
 
@@ -1312,15 +1347,15 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 					}
 
 					if (tokens[i + 5 + reference_offset].value == "public") {
-						variable.addProperty("access_modifier", "public");
+						variable->addProperty("access_modifier", "public");
 						access_modifier_offset = 2;
 					}
 					else if (tokens[i + 5 + reference_offset].value == "protected") {
-						variable.addProperty("access_modifier", "protected");
+						variable->addProperty("access_modifier", "protected");
 						access_modifier_offset = 2;
 					}
 					else if (tokens[i + 5 + reference_offset].value == "private") {
-						variable.addProperty("access_modifier", "private");
+						variable->addProperty("access_modifier", "private");
 						access_modifier_offset = 2;
 					}
 					else {
@@ -1333,8 +1368,8 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				k = i + 3 + reference_offset + access_modifier_offset;
 			}
 			else if (tokens[i + 2].value == "&") {
-				variable.addProperty("nullable", "0");
-				variable.addProperty("type", tokens[i + 1].value + "&");
+				variable->addProperty("nullable", "0");
+				variable->addProperty("type", tokens[i + 1].value + "&");
 
 				if (!vec_check_index(tokens, i + 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
@@ -1346,7 +1381,7 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 					i = findNextSemicolon(tokens, i + 3);
 					continue;
 				}
-				variable.addProperty("name", tokens[i + 3].value);
+				variable->addProperty("name", tokens[i + 3].value);
 
 				int access_modifier_offset = 0;
 
@@ -1361,15 +1396,15 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 					}
 
 					if (tokens[i + 5].value == "public") {
-						variable.addProperty("access_modifier", "public");
+						variable->addProperty("access_modifier", "public");
 						access_modifier_offset = 2;
 					}
 					else if(tokens[i + 5].value == "protected") {
-						variable.addProperty("access_modifier", "protected");
+						variable->addProperty("access_modifier", "protected");
 						access_modifier_offset = 2;
 					}
 					else if (tokens[i + 5].value == "private") {
-						variable.addProperty("access_modifier", "private");
+						variable->addProperty("access_modifier", "private");
 						access_modifier_offset = 2;
 					}
 				}
@@ -1377,13 +1412,13 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 				k = i + 3 + access_modifier_offset;
 			}
 			else if (tokens[i + 2].value == "=") {
-				variable.addProperty("type", "auto");
-				variable.addProperty("name", tokens[i + 1].value);
+				variable->addProperty("type", "auto");
+				variable->addProperty("name", tokens[i + 1].value);
 
 				k = 1;
 			}
 			else if (tokens[i + 2].value == ";") {
-				variable.addProperty("name", tokens[i + 1].value);
+				variable->addProperty("name", tokens[i + 1].value);
 				throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
 				i = i + 2;
 				continue;
@@ -1407,9 +1442,9 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 			else if (tokens[k + 1].value == "=") {
 				auto result = getExpression(tokens, i + 2, 0);
 				if (!get<bool>(result)) continue;
-				Constructor variable_init = get<Constructor>(result);
-				variable_init.setName("variable_init");
-				variable.addProperty(variable_init);
+				Constructor* variable_init = get<Constructor*>(result);
+				variable_init->setName("variable_init");
+				variable->addProperty(variable_init);
 				class_variables.push_back(variable);
 				i = findNextSemicolon(tokens, k + 1);
 			}
@@ -1424,37 +1459,37 @@ vector<Constructor> SlentCompiler::getClassVariables(vector<Token> tokens, Scope
 	return class_variables;
 }
 
-vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope, bool includeBody) {
-	vector<Constructor> class_functions;
+vector<Constructor*> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope, bool includeBody) {
+	vector<Constructor*> class_functions;
 	for (int i = scope.start; i <= scope.end; i++) {
 		if (tokens[i].value == "dynamic") {
-			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
+			tuple<Constructor*, bool> getExternalFunction_result = getExternalFunction(tokens, i, true);
 			if (!get<bool>(getExternalFunction_result)) {
 				i = findNextSemicolon(tokens, i);
 				continue;
 			}
-			Constructor external_function = get<Constructor>(getExternalFunction_result);
+			Constructor* external_function = get<Constructor*>(getExternalFunction_result);
 			class_functions.push_back(external_function);
 			i = findNextSemicolon(tokens, i);
 			continue;
 		}
 		else if (tokens[i].value == "extern") {
-			tuple<Constructor, bool> getExternalFunction_result = getExternalFunction(tokens, i, false);
+			tuple<Constructor*, bool> getExternalFunction_result = getExternalFunction(tokens, i, false);
 			if (!get<bool>(getExternalFunction_result)) {
 				i = findNextSemicolon(tokens, i);
 				continue;
 			}
-			Constructor external_function = get<Constructor>(getExternalFunction_result);
+			Constructor* external_function = get<Constructor*>(getExternalFunction_result);
 			class_functions.push_back(external_function);
 			i = findNextSemicolon(tokens, i);
 			continue;
 		}
 		else if (tokens[i].value == "func") {
 			int functionBodyEnd = findBraceClose(tokens, findBraceClose(tokens, i, -1), 0);
-			tuple<Constructor, bool> getFunction_result = getFunction(tokens, Scope(i, functionBodyEnd), true);
+			tuple<Constructor*, bool> getFunction_result = getFunction(tokens, Scope(i, functionBodyEnd), true);
 			if (get<bool>(getFunction_result)) {
-				Constructor function = get<Constructor>(getFunction_result);
-				function.setName("function_c");
+				Constructor* function = get<Constructor*>(getFunction_result);
+				function->setName("function_c");
 				
 				if (!vec_check_index(tokens, functionBodyEnd + 1)) {
 					if (tokens[functionBodyEnd + 1].value == ":") {
@@ -1464,13 +1499,13 @@ vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope
 						}
 						
 						if (tokens[functionBodyEnd + 2].value == "public") {
-							function.addProperty("access_modifier", "public");
+							function->addProperty("access_modifier", "public");
 						}
 						else if (tokens[functionBodyEnd + 2].value == "protected") {
-							function.addProperty("access_modifier", "protected");
+							function->addProperty("access_modifier", "protected");
 						}
 						else if (tokens[functionBodyEnd + 2].value == "private") {
-							function.addProperty("access_modifier", "private");
+							function->addProperty("access_modifier", "private");
 						}
 					}
 				}
@@ -1483,9 +1518,9 @@ vector<Constructor> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope
 	return class_functions;
 }
 
-Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
-	Constructor function_body = Constructor();
-	function_body.setName("body");
+Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
+	Constructor* function_body = new Constructor();
+	function_body->setName("body");
 	vector<vector<Token>> split = split_token(tokens, scope, ";");
 	for (int i = 0; i < split.size(); i++) {
 		vector<Token> line = split[i];
@@ -1495,9 +1530,9 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 		}
 
 		if (line[0].value == "val") { // declear value variable
-			Constructor constant_variable_declear = Constructor();
-			constant_variable_declear.setName("variable_decl_l");
-			constant_variable_declear.addProperty("isVal", "1");
+			Constructor* constant_variable_declear = new Constructor();
+			constant_variable_declear->setName("variable_decl_l");
+			constant_variable_declear->addProperty("isVal", "1");
 
 			if (!vec_check_index(line, 1)) {
 				throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[0].line));
@@ -1527,15 +1562,15 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				int reference_offset = 0;
 
 				if (line[3].value == "&") {
-					constant_variable_declear.addProperty("type", tokens[i + 1].value + "&");
+					constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
 					reference_offset = 1;
 				}
 				else {
-					constant_variable_declear.addProperty("type", line[1].value);
+					constant_variable_declear->addProperty("type", line[1].value);
 				}
 
-				constant_variable_declear.addProperty("nullable", "0");
-				constant_variable_declear.addProperty("name", line[2].value);
+				constant_variable_declear->addProperty("nullable", "0");
+				constant_variable_declear->addProperty("name", line[2].value);
 
 				if (!vec_check_index(line, 3 + reference_offset)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2 + reference_offset].line));
@@ -1550,7 +1585,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 2 + reference_offset;
 			}
 			else if (line[2].value == "?") {
-				constant_variable_declear.addProperty("nullable", "1");
+				constant_variable_declear->addProperty("nullable", "1");
 
 				if (!vec_check_index(line, 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
@@ -1560,18 +1595,18 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				int reference_offset = 0;
 
 				if (line[3].value == "&") {
-					constant_variable_declear.addProperty("type", line[1].value + "&");
+					constant_variable_declear->addProperty("type", line[1].value + "&");
 					reference_offset = 1;
 				}
 				else {
-					constant_variable_declear.addProperty("type", line[1].value);
+					constant_variable_declear->addProperty("type", line[1].value);
 				}
 
 				if (line[3 + reference_offset].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(SL0013E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
-				constant_variable_declear.addProperty("name", line[3 + reference_offset].value);
+				constant_variable_declear->addProperty("name", line[3 + reference_offset].value);
 
 				if (!vec_check_index(line, 4 + reference_offset)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[3 + reference_offset].line));
@@ -1586,8 +1621,8 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 3 + reference_offset;
 			}
 			else if (line[2].value == "&") {
-				constant_variable_declear.addProperty("nullable", "0");
-				constant_variable_declear.addProperty("type", line[1].value + "&");
+				constant_variable_declear->addProperty("nullable", "0");
+				constant_variable_declear->addProperty("type", line[1].value + "&");
 
 				if (!vec_check_index(line, 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
@@ -1598,7 +1633,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
 					continue;
 				}
-				constant_variable_declear.addProperty("name", line[3].value);
+				constant_variable_declear->addProperty("name", line[3].value);
 
 				if (!vec_check_index(line, 4)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2].line));
@@ -1613,13 +1648,13 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 3;
 			}
 			else if (line[2].value == "=") {
-				constant_variable_declear.addProperty("type", "auto");
-				constant_variable_declear.addProperty("name", line[1].value);
+				constant_variable_declear->addProperty("type", "auto");
+				constant_variable_declear->addProperty("name", line[1].value);
 
 				k = 1;
 			}
 			else if (line[2].value == ";") {
-				constant_variable_declear.addProperty("name", line[1].value);
+				constant_variable_declear->addProperty("name", line[1].value);
 				throwCompileMessage(CompileMessage(SL0034E, currentFileName, line[2].line));
 				throwCompileMessage(CompileMessage(SL0025E, currentFileName, line[2].line));
 				continue;
@@ -1637,10 +1672,10 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			if (line[k + 1].value == "=") {
 				auto result = getExpression(line, k + 2, 0);
 				if (!get<bool>(result)) continue;
-				Constructor variable_init = get<Constructor>(result);
-				variable_init.setName("variable_init");
-				constant_variable_declear.addProperty(variable_init);
-				function_body.addProperty(constant_variable_declear);
+				Constructor* variable_init = get<Constructor*>(result);
+				variable_init->setName("variable_init");
+				constant_variable_declear->addProperty(variable_init);
+				function_body->addProperty(constant_variable_declear);
 				continue;
 			}
 			else {
@@ -1649,9 +1684,9 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			}
 		}
 		else if (line[0].value == "var") { // declear variable
-			Constructor variable_declear = Constructor();
-			variable_declear.setName("variable_decl_l");
-			variable_declear.addProperty("isVal", "0");
+			Constructor* variable_declear = new Constructor();
+			variable_declear->setName("variable_decl_l");
+			variable_declear->addProperty("isVal", "0");
 
 			if (!vec_check_index(line, 1)) {
 				throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[0].line));
@@ -1681,15 +1716,15 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				int reference_offset = 0;
 
 				if (line[3].value == "&") {
-					variable_declear.addProperty("type", tokens[i + 1].value + "&");
+					variable_declear->addProperty("type", tokens[i + 1].value + "&");
 					reference_offset = 1;
 				}
 				else {
-					variable_declear.addProperty("type", line[1].value);
+					variable_declear->addProperty("type", line[1].value);
 				}
 
-				variable_declear.addProperty("nullable", "0");
-				variable_declear.addProperty("name", line[2].value);
+				variable_declear->addProperty("nullable", "0");
+				variable_declear->addProperty("name", line[2].value);
 
 				if (!vec_check_index(line, 3 + reference_offset)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2 + reference_offset].line));
@@ -1704,7 +1739,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 2 + reference_offset;
 			}
 			else if (line[2].value == "?") {
-				variable_declear.addProperty("nullable", "1");
+				variable_declear->addProperty("nullable", "1");
 
 				if (!vec_check_index(line, 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
@@ -1714,18 +1749,18 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				int reference_offset = 0;
 
 				if (line[3].value == "&") {
-					variable_declear.addProperty("type", line[1].value + "&");
+					variable_declear->addProperty("type", line[1].value + "&");
 					reference_offset = 1;
 				}
 				else {
-					variable_declear.addProperty("type", line[1].value);
+					variable_declear->addProperty("type", line[1].value);
 				}
 
 				if (line[3 + reference_offset].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(SL0013E, currentFileName, line[3 + reference_offset].line));
 					continue;
 				}
-				variable_declear.addProperty("name", line[3 + reference_offset].value);
+				variable_declear->addProperty("name", line[3 + reference_offset].value);
 
 				if (!vec_check_index(line, 4 + reference_offset)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[3 + reference_offset].line));
@@ -1740,8 +1775,8 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 3 + reference_offset;
 			}
 			else if (line[2].value == "&") {
-				variable_declear.addProperty("nullable", "0");
-				variable_declear.addProperty("type", line[1].value + "&");
+				variable_declear->addProperty("nullable", "0");
+				variable_declear->addProperty("type", line[1].value + "&");
 
 				if (!vec_check_index(line, 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, line[2].line));
@@ -1752,7 +1787,7 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
 					continue;
 				}
-				variable_declear.addProperty("name", line[3].value);
+				variable_declear->addProperty("name", line[3].value);
 
 				if (!vec_check_index(line, 4)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, line[2].line));
@@ -1767,13 +1802,13 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				k = 3;
 			}
 			else if (line[2].value == "=") {
-				variable_declear.addProperty("type", "auto");
-				variable_declear.addProperty("name", line[1].value);
+				variable_declear->addProperty("type", "auto");
+				variable_declear->addProperty("name", line[1].value);
 
 				k = 1;
 			}
 			else if (line[2].value == ";") {
-				variable_declear.addProperty("name", line[1].value);
+				variable_declear->addProperty("name", line[1].value);
 				throwCompileMessage(CompileMessage(SL0034E, currentFileName, line[2].line));
 				continue;
 			}
@@ -1788,16 +1823,16 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			}
 
 			if (line[k + 1].value == ";") {
-				function_body.addProperty(variable_declear);
+				function_body->addProperty(variable_declear);
 				continue;
 			}
 			else if (line[k + 1].value == "=") {
 				auto result = getExpression(line, k + 2, 0);
 				if (!get<bool>(result)) continue;
-				Constructor variable_init = get<Constructor>(result);
-				variable_init.setName("variable_init");
-				variable_declear.addProperty(variable_init);
-				function_body.addProperty(variable_declear);
+				Constructor* variable_init = get<Constructor*>(result);
+				variable_init->setName("variable_init");
+				variable_declear->addProperty(variable_init);
+				function_body->addProperty(variable_declear);
 				continue;
 			}
 			else {
@@ -1811,29 +1846,29 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				continue;
 			}
 
-			Constructor return_ = Constructor();
-			return_.setName("return");
+			Constructor* return_ = new Constructor();
+			return_->setName("return");
 
 			if (line[1].value == ";") {
-				return_.addProperty("value", "");
-				function_body.addProperty(return_);
+				return_->addProperty("value", "");
+				function_body->addProperty(return_);
 				continue;
 			}
 
 			auto result = getExpression(line, 1, 0);
 			if (!get<bool>(result)) continue;
-			Constructor return_val_expression = get<Constructor>(result);
-			return_val_expression.setName("value");
-			return_.addProperty(return_val_expression);
-			function_body.addProperty(return_);
+			Constructor* return_val_expression = get<Constructor*>(result);
+			return_val_expression->setName("value");
+			return_->addProperty(return_val_expression);
+			function_body->addProperty(return_);
 			continue;
 		}
 
 		if (line.back().value != ";") {
-			tuple<Constructor, bool> expression = getExpression(line, 0, 0);
+			tuple<Constructor*, bool> expression = getExpression(line, 0, 0);
 			if (!get<bool>(expression)) continue;
 
-			function_body.addProperty(get<Constructor>(expression));
+			function_body->addProperty(get<Constructor*>(expression));
 			continue;
 		}
 
@@ -1843,26 +1878,26 @@ Constructor SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 	return function_body;
 }
 
-tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int start_index, int depth) {
-	Constructor expression = Constructor();
-	expression.setName("expression");
+tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> line, int start_index, int depth) {
+	Constructor* expression = new Constructor();
+	expression->setName("expression");
 
 	for (int i = start_index; i < ((depth == 0) ? line.size() : findBracketClose(line, start_index, 1)); i++) {
-		function<tuple<Constructor, bool>(bool)> getReference;
-		getReference = [line, &i, this, &getReference](bool origin) -> tuple<Constructor, bool> {
-			if (line[i].type != TokenType::IDENTIFIER) return make_tuple(Constructor(), false);
+		function<tuple<Constructor*, bool>(bool)> getReference;
+		getReference = [line, &i, this, &getReference](bool origin) -> tuple<Constructor*, bool> {
+			if (line[i].type != TokenType::IDENTIFIER) return make_tuple(new Constructor(), false);
 
-			Constructor reference = Constructor();
+			Constructor* reference = new Constructor();
 
 			if (origin) {
-				reference.setName("reference");
+				reference->setName("reference");
 				auto result = getReference(false);
-				Constructor reference_detail = get<Constructor>(result);
-				reference.addProperty(reference_detail);
+				Constructor* reference_detail = get<Constructor*>(result);
+				reference->addProperty(reference_detail);
 				return make_tuple(reference, true);
 			}
 
-			reference.setName(line[i].value);
+			reference->setName(line[i].value);
 
 			if (vec_check_index(line, i + 1)) {
 				if (line[i + 1].value == ".") {
@@ -1870,17 +1905,17 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 						i = i + 2;
 						auto result = getReference(false);
 						if (!get<bool>(result)) {
-							return make_tuple(Constructor(), false);
+							return make_tuple(new Constructor(), false);
 						}
-						Constructor access_detail = get<Constructor>(result);
-						Constructor member_access;
-						member_access.setName("member_access");
-						member_access.addProperty(access_detail);
-						reference.addProperty(member_access);
+						Constructor* access_detail = get<Constructor*>(result);
+						Constructor* member_access = new Constructor();
+						member_access->setName("member_access");
+						member_access->addProperty(access_detail);
+						reference->addProperty(member_access);
 					}
 					else {
 						throwCompileMessage(CompileMessage(SL0018E, currentFileName, i + 1));
-						return make_tuple(Constructor(), false);
+						return make_tuple(new Constructor(), false);
 					}
 				}
 				else {
@@ -1889,47 +1924,47 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 			}
 			else {
 				throwCompileMessage(CompileMessage(SL0018E, currentFileName, i));
-				return make_tuple(Constructor(), false);
+				return make_tuple(new Constructor(), false);
 			}
 
 			return make_tuple(reference, true);
 		};
 
 		if (line[i].type == TokenType::IDENTIFIER) {
-			if (line.size() <= (i + 1)) return make_tuple(Constructor(), false);
+			if (line.size() <= (i + 1)) return make_tuple(new Constructor(), false);
 
 			// function call
 			if (line[i + 1].value == "(") {
-				Constructor function_call = Constructor();
-				function_call.setName("function_call");
-				function_call.addProperty("func_name", line[i].value);
-				tuple<Constructor, bool> get_parameter = getExpression(line, i + 2, depth + 1);
+				Constructor* function_call = new Constructor();
+				function_call->setName("function_call");
+				function_call->addProperty("func_name", line[i].value);
+				tuple<Constructor*, bool> get_parameter = getExpression(line, i + 2, depth + 1);
 				if (!get<bool>(get_parameter)) { // conversion of lower depth failed
 					i = findBracketClose(line, i + 1, 0);
 					continue;
 				}
 				if (findBracketClose(line, i + 1, 0) == -1) {
 					throwCompileMessage(CompileMessage(SL0027E, currentFileName, line[i + 1].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
-				Constructor parameter_constructor = get<Constructor>(get_parameter);
-				parameter_constructor.setName("parameters");
-				function_call.addProperty(parameter_constructor);
-				expression.addProperty(function_call);
+				Constructor* parameter_constructor = get<Constructor*>(get_parameter);
+				parameter_constructor->setName("parameters");
+				function_call->addProperty(parameter_constructor);
+				expression->addProperty(function_call);
 				i = findBracketClose(line, i + 1, 0);
 				continue;
 			}
 
 			auto result = getReference(true);
 			if (!get<bool>(result)) continue;
-			expression.addProperty(get<Constructor>(result));
+			expression->addProperty(get<Constructor*>(result));
 			continue;
 		}
 
 		if ((line[i].type == TokenType::CONSTANT) || line[i].type == TokenType::LITERAL) {
 			auto result = getReference(true);
 			if (!get<bool>(result)) continue;
-			expression.addProperty(get<Constructor>(result));
+			expression->addProperty(get<Constructor*>(result));
 			continue;
 		}
 
@@ -1937,54 +1972,54 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 			const vector<string> assignment_operators = { "=", "+=", "-=", "*=", "/=", "%=" };
 			const vector<string> relational_operators = { "==", "!=", "<", ">", "<=", ">=" };
 
-			auto getOperation = [line, &i, this, &expression, &depth]() -> tuple<Constructor, bool> {
-				Constructor operation = Constructor();
-				operation.setName("operation");
-				operation.addProperty("type", line[i].value);
-				Constructor left = Constructor();
-				left.setName("left");
-				Constructor right = Constructor();
-				right.setName("right");
+			auto getOperation = [line, &i, this, &expression, &depth]() -> tuple<Constructor*, bool> {
+				Constructor* operation = new Constructor();
+				operation->setName("operation");
+				operation->addProperty("type", line[i].value);
+				Constructor* left = new Constructor();
+				left->setName("left");
+				Constructor* right = new Constructor();
+				right->setName("right");
 
 				// left side of operator
-				for (int j = 0; j < expression.getProperties().size(); j++) {
-					left.addProperty(expression.getProperties()[j]);
+				for (int j = 0; j < expression->getProperties().size(); j++) {
+					left->addProperty(expression->getProperties()[j]);
 				}
 
 				// right side of operator
-				tuple<Constructor, bool> right_expression_result = getExpression(line, i + 1, depth);
+				tuple<Constructor*, bool> right_expression_result = getExpression(line, i + 1, depth);
 				if (!get<bool>(right_expression_result)) {
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
-				for (int j = 0; j < get<Constructor>(right_expression_result).getProperties().size(); j++) {
-					right.addProperty(get<Constructor>(right_expression_result).getProperties()[j]);
+				for (int j = 0; j < get<Constructor*>(right_expression_result)->getProperties().size(); j++) {
+					right->addProperty(get<Constructor*>(right_expression_result)->getProperties()[j]);
 				}
 
-				operation.addProperty(left);
-				operation.addProperty(right);
+				operation->addProperty(left);
+				operation->addProperty(right);
 				return make_tuple(operation, true);
 			};
 
 			if (find(assignment_operators.begin(), assignment_operators.end(), line[i].value) != assignment_operators.end()) {
 				if (depth != 0) {
 					throwCompileMessage(CompileMessage(SL0024E, currentFileName, line[i].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
 
-				tuple<Constructor, bool> getOperation_result = getOperation();
+				tuple<Constructor*, bool> getOperation_result = getOperation();
 				if (!get<bool>(getOperation_result)) {
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
-				expression.addProperty(get<Constructor>(getOperation_result));
+				expression->addProperty(get<Constructor*>(getOperation_result));
 				i = findBracketClose(line, i, depth);
 				continue;
 			}
 			if (find(relational_operators.begin(), relational_operators.end(), line[i].value) != relational_operators.end()) {
-				tuple<Constructor, bool> getOperation_result = getOperation();
+				tuple<Constructor*, bool> getOperation_result = getOperation();
 				if (!get<bool>(getOperation_result)) {
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
-				expression.addProperty(get<Constructor>(getOperation_result));
+				expression->addProperty(get<Constructor*>(getOperation_result));
 				i = findBracketClose(line, i, depth);
 				continue;
 			}
@@ -1994,52 +2029,52 @@ tuple<Constructor, bool> SlentCompiler::getExpression(vector<Token> line, int st
 	return make_tuple(expression, true);
 }
 
-tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens, int cursor, bool isDynamic) {
+tuple<Constructor*, bool> SlentCompiler::getExternalFunction(vector<Token> tokens, int cursor, bool isDynamic) {
 	if (isDynamic) {
 		if (tokens[cursor].value == "dynamic") {
 			if (!vec_check_index(tokens, cursor + 1)) {
 				throwCompileMessage(CompileMessage(SL0037E, currentFileName, tokens[cursor].line));
-				return make_tuple(Constructor(), false);
+				return make_tuple(new Constructor(), false);
 			}
 
 			if (tokens[cursor + 1].value == "extern") {
 				if (!vec_check_index(tokens, cursor + 2)) {
 					throwCompileMessage(CompileMessage(SL0038E, currentFileName, tokens[cursor + 1].line));
 					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 1].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
 
 				if (tokens[cursor + 2].type == TokenType::LITERAL) {
 					if (!vec_check_index(tokens, cursor + 3)) {
 						throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 3].line));
-						return make_tuple(Constructor(), false);
+						return make_tuple(new Constructor(), false);
 					}
 
 					if (tokens[cursor + 3].value == "func") {
-						tuple<Constructor, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 3, findNextSemicolon(tokens, cursor + 3)), false);
-						Constructor external_function = get<Constructor>(externalFunction_result);
-						external_function.addProperty("extern", tokens[cursor + 2].value);
+						tuple<Constructor*, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 3, findNextSemicolon(tokens, cursor + 3)), false);
+						Constructor* external_function = get<Constructor*>(externalFunction_result);
+						external_function->addProperty("extern", tokens[cursor + 2].value);
 						return make_tuple(external_function, true);
 					}
 					else {
 						throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 3].line));
-						return make_tuple(Constructor(), false);
+						return make_tuple(new Constructor(), false);
 					}
 				}
 				else if (tokens[cursor + 2].value == "func") {
-					tuple<Constructor, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 2, findNextSemicolon(tokens, cursor + 2)), false);
-					Constructor external_function = get<Constructor>(externalFunction_result);
-					external_function.addProperty("extern", "");
+					tuple<Constructor*, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 2, findNextSemicolon(tokens, cursor + 2)), false);
+					Constructor* external_function = get<Constructor*>(externalFunction_result);
+					external_function->addProperty("extern", "");
 					return make_tuple(external_function, true);
 				}
 				else {
 					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 2].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
 			}
 			else {
 				throwCompileMessage(CompileMessage(SL0037E, currentFileName, tokens[cursor + 1].line));
-				return make_tuple(Constructor(), false);
+				return make_tuple(new Constructor(), false);
 			}
 		}
 	}
@@ -2048,33 +2083,33 @@ tuple<Constructor, bool> SlentCompiler::getExternalFunction(vector<Token> tokens
 			if (!vec_check_index(tokens, cursor + 1)) {
 				throwCompileMessage(CompileMessage(SL0038E, currentFileName, tokens[cursor].line));
 				throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor].line));
-				return make_tuple(Constructor(), false);
+				return make_tuple(new Constructor(), false);
 			}
 
 			if (tokens[cursor + 1].type == TokenType::LITERAL) {
 				if (!vec_check_index(tokens, cursor + 2)) {
 					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 2].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
 
 				if (tokens[cursor + 2].value == "func") {
-					tuple<Constructor, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 2, findNextSemicolon(tokens, cursor + 2)), false);
-					Constructor external_function = get<Constructor>(externalFunction_result);
-					external_function.addProperty("extern", tokens[cursor + 1].value);
+					tuple<Constructor*, bool> externalFunction_result = getFunction(tokens, Scope(cursor + 2, findNextSemicolon(tokens, cursor + 2)), false);
+					Constructor* external_function = get<Constructor*>(externalFunction_result);
+					external_function->addProperty("extern", tokens[cursor + 1].value);
 					return make_tuple(external_function, true);
 				}
 				else {
 					throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 2].line));
-					return make_tuple(Constructor(), false);
+					return make_tuple(new Constructor(), false);
 				}
 			}
 			else if (tokens[cursor + 1].value == "func") {
 				throwCompileMessage(CompileMessage(SL0038E, currentFileName, tokens[cursor + 1].line));
-				return make_tuple(Constructor(), false);
+				return make_tuple(new Constructor(), false);
 			}
 			else {
 				throwCompileMessage(CompileMessage(SL0039E, currentFileName, tokens[cursor + 1].line));
-				return make_tuple(Constructor(), false);
+				return make_tuple(new Constructor(), false);
 			}
 		}
 	}
@@ -2147,7 +2182,7 @@ int SlentCompiler::findNextSemicolon(vector<Token> tokens, int cursor) {
 	}
 }
 
-string SlentCompiler::bytecode(Constructor ast) {
+string SlentCompiler::bytecode(Constructor* ast) {
 	vector<string> commands;
 
 
@@ -2249,11 +2284,13 @@ void SlentCompiler::Compile() {
 
 	vector<string> no_comment_codes;
 
-	Constructor module_tree;
+	Constructor* module_tree = new Constructor();
 	bool first_module = true;
 
 	for (auto& [filename, code] : code_files) {
 		currentFileName = filename;
+
+		cout << colorString(string("[Compile] ").append(filename), CYAN_LIGHT) << endl;
 
 		if (compilerSetting.trace_compile_logs) {
 			cout << "[ source code ]" << endl;
@@ -2275,18 +2312,18 @@ void SlentCompiler::Compile() {
 		string no_comment_code = regex_replace(code, commentRegex, "");
 		no_comment_codes.push_back(no_comment_code);
 
-		Constructor module_tree_file = getModuleTree(code);
+		Constructor* module_tree_file = getModuleTree(code);
 		if (first_module) {
-			module_tree = module_tree_file;
+			module_tree = Constructor::copy(module_tree_file);
 			first_module = false;
 		}
 		else {
-			tuple<Constructor, bool> module_tree_merge_result = Constructor::merge(module_tree, module_tree_file);
-			Constructor module_tree = get<Constructor>(module_tree_merge_result);
+			tuple<Constructor*, bool> module_tree_merge_result = Constructor::merge(module_tree, module_tree_file);
+			Constructor* module_tree = get<Constructor*>(module_tree_merge_result);
 		}
 
 		if (compilerSetting.trace_compile_logs) {
-			cout << "[ module_tree ]" << endl << module_tree.toPrettyString() << endl << endl;
+			cout << "[ module_tree ]" << endl << module_tree->toPrettyString() << endl << endl;
 		}
 	}
 
@@ -2361,11 +2398,11 @@ void SlentCompiler::Compile() {
 			cout << endl;
 		}
 
-		Constructor AST = parser(tokens);
+		Constructor* AST = parser(tokens);
 		
 		if (compilerSetting.trace_compile_logs) {
 			cout << "[ AST ]" << endl;
-			cout << AST.toPrettyString() << endl;
+			cout << AST->toPrettyString() << endl;
 		}
 	}
 }
