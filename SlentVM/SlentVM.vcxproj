@@ -19,9 +19,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bit_utils.h" />
+    <ClCompile Include="GC.cpp" />
+    <ClCompile Include="HeapManager.cpp" />
     <ClCompile Include="SlentVM.cpp" />
+    <ClCompile Include="Test.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GC.h" />
+    <ClInclude Include="HeapManager.h" />
     <ClInclude Include="SlentVM.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

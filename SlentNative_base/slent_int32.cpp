@@ -6,5 +6,5 @@ extern "C" {
 		return self == obj;
 	}
 
-
+	
 }

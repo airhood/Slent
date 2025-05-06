@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace Slent {
 
@@ -49,29 +50,21 @@ namespace Slent {
             success(success) {}
     };
 
-    typedef int address;
+    typedef unsigned long long address;
 
     class MemoryManager {
     private:
-        int stack_size;
-        int heap_size;
-        int max_heap_size;
-        int current_stack_index; // max index
+        size_t stack_size;
+        size_t current_stack_index; // max index
         void** stack_memory;
-        void** heap_memory;
-
-        bool* heap_usage;
 
         address find_free_address();
 
     public:
         MemoryManager() {
             stack_size = 0;
-            heap_size = 0;
-            max_heap_size = 0;
             current_stack_index = -1;
             stack_memory = nullptr;
-            heap_memory = nullptr;
         }
 
         void set_stack_size(int size);
@@ -88,10 +81,13 @@ namespace Slent {
 
     class BytecodeInterpreter {
     private:
+        int* status_code;
+        std::string error;
+
         int Interpret(std::vector<std::string> command);
 
     public:
-        BytecodeInterpreter() = default;
+        BytecodeInterpreter(int* status_code);
 
         void RunBytecode(std::string bytecode);
     };
@@ -109,14 +105,15 @@ namespace Slent {
         MemoryManager* memory_manager;
         VMSetting vm_setting;
 
-    public:
-        SlentVM() {
-            bytecode_interpreter = new BytecodeInterpreter;
-            memory_manager = new MemoryManager;
-        }
+        int* status_code;
 
-        void set_stack_size(int size);
-        void set_max_heap_size(int size);
+    public:
+        SlentVM();
+
+        void ConfigureSetting(VMSetting setting);
         void Run(std::string bytecode);
+
+    private:
+        void applySetting();
     };
 }

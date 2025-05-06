@@ -18,9 +18,27 @@
     <ClCompile Include="SlentVM.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="Test.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="GC.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HeapManager.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="bit_utils.h">
+      <Filter>헤더 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SlentVM.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="GC.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HeapManager.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

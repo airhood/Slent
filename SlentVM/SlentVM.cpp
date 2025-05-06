@@ -1,7 +1,4 @@
-typedef int address;
-
 #include "SlentVM.h"
-#include <vector>
 #include <sstream>
 #include <iostream>
 
@@ -26,8 +23,16 @@ void MemoryManager::set_max_heap_size(int size) {
 
 void MemoryManager::start() {
 	heap_memory = (void**)malloc(sizeof(void*) * heap_size);
+	heap_usage = (bool*)malloc(sizeof(bool) * heap_size);
+	heap_marked = (bool*)malloc(sizeof(bool) * heap_size);
+	if (heap_memory == NULL || heap_usage == NULL || heap_marked == NULL) {
+		cerr << "Failed to allocate memory." << endl;
+		return;
+	}
 	for (int i = 0; i < heap_size; i++) {
 		heap_memory[i] = nullptr;
+		heap_usage[i] = false;
+		heap_marked[i] = false;
 	}
 }
 
@@ -59,6 +64,7 @@ tuple<T, bool> MemoryManager::read_heap(int address) {
 	return make_tuple(*((T*)heap_memory[address]), true);
 }
 
+const int CODE_DEFAULT = 0;
 const int CODE_ERROR = -1;
 const int CODE_EXIT = -2;
 
@@ -68,15 +74,24 @@ int BytecodeInterpreter::Interpret(vector<string> command) {
 	}
 
 	if (command[0] == "goto") {
-		return stoi(command[1]);
+		int line = stoi(command[1]);
+		if (line < 1) {
+			error = "Cannot go to line " + to_string(line);
+			return CODE_ERROR;
+		}
+		return line;
 	}
 	else if (command[0] == "process") {
 		if (command[1] == "exit") {
+			if (vec_check_index(command, 2)) {
+				*status_code = stoi(command[2]);
+			}
 			return CODE_EXIT;
 		}
 	}
 	else {
-		return CODE_ERROR; // error
+		error = string("Unknown bytecode command: ").append(command[0]);
+		return CODE_ERROR;
 	}
 }
 
@@ -92,16 +107,56 @@ vector<string> split(string str, char Delimiter) {
 	return result;
 }
 
+BytecodeInterpreter::BytecodeInterpreter(int* status_code) {
+	this->status_code = status_code;
+}
+
 void BytecodeInterpreter::RunBytecode(string bytecode) {
 	vector<string> lines = split(bytecode, '\n');
-	for (auto& line : lines) {
-		vector<string> tokens = split(bytecode, ':');
+	int max_cursor = lines.size() - 1;
+	int cursor = 0;
+	while (true) {
+		vector<string> tokens = split(lines[cursor], ':');
 		vector<string> command = split(tokens[0], ' ');
-		string filename = tokens[1];
-		string line = tokens[2];
+
+		string filename;
+		if (!vec_check_index(tokens, 1)) {
+			filename = "unknown";
+		}
+		else {
+			filename = tokens[1];
+		}
+
+		string line;
+		if (!vec_check_index(tokens, 2)) {
+			line = "-1";
+		}
+		else {
+			line = tokens[2];
+		}
+
 		int result_code = Interpret(command);
-		if (result_code == -1) {
-			throwRuntimeMessage(RuntimeMessage(VM_MessageType::ERROR, "Internal Error", filename, stoi(line)));
+
+		switch (result_code) {
+			case CODE_DEFAULT:
+				break;
+			case CODE_ERROR:
+				throwRuntimeMessage(RuntimeMessage(VM_MessageType::ERROR, string("Bytecode error: ").append(error), filename, stoi(line)));
+				return;
+			case CODE_EXIT:
+				return;
+			default:
+				cursor = result_code;
+				if (cursor > max_cursor) {
+					throwRuntimeMessage(RuntimeMessage(VM_MessageType::ERROR, "Bytecode error", filename, stoi(line)));
+					return;
+				}
+				continue;
+		}
+
+		cursor++;
+		if (cursor > max_cursor) {
+			throwRuntimeMessage(RuntimeMessage(VM_MessageType::ERROR, "Bytecode error: exit command missing", filename, stoi(line)));
 			return;
 		}
 	}
@@ -111,7 +166,7 @@ string colorString(string str, int color) {
 	return string("\033[0;").append(to_string(color)).append("m").append(str).append("\033[0m");
 }
 
-void throwRuntimeMessage(RuntimeMessage runtimeMessage) {
+void Slent::throwRuntimeMessage(RuntimeMessage runtimeMessage) {
 	string type;
 	int color;
 	switch (runtimeMessage.type) {
@@ -130,23 +185,42 @@ void throwRuntimeMessage(RuntimeMessage runtimeMessage) {
 		default:
 			return;
 	}
+	
+	string line;
+	if (runtimeMessage.line_index == -1) {
+		line = "unknown";
+	}
+	else {
+		line = to_string(runtimeMessage.line_index + 1);
+	}
+
 	string str = colorString(string("[").append(type).append("] ")
 		.append(runtimeMessage.message)
-		.append("(")
-		.append(":line ").append(to_string(runtimeMessage.line_index + 1))
+		.append("(").append(runtimeMessage.file_name)
+		.append(":line ").append(line)
 		.append(")"), color);
 	cout << str << endl;
 }
 
-void SlentVM::set_stack_size(int size) {
-	memory_manager->set_stack_size(size);
+SlentVM::SlentVM() {
+	status_code = new int;
+	*status_code = 0;
+	bytecode_interpreter = new BytecodeInterpreter(status_code);
+	memory_manager = new MemoryManager;
+	vm_setting = VMSetting();
 }
 
-void SlentVM::set_max_heap_size(int size) {
-	memory_manager->set_max_heap_size(size);
+void SlentVM::ConfigureSetting(VMSetting setting) {
+	vm_setting = setting;
 }
 
 void SlentVM::Run(string bytecode) {
 	memory_manager->start();
 	bytecode_interpreter->RunBytecode(bytecode);
+	cout << colorString(string("Process exited with code ").append(to_string(*status_code)), CYAN_LIGHT);
+}
+
+void SlentVM::applySetting() {
+	memory_manager->set_stack_size(vm_setting.stack_size);
+	memory_manager->set_max_heap_size(vm_setting.max_heap_size);
 }

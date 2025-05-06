@@ -45,7 +45,7 @@ void SlentSystem::Run(int argc, char** argv) {
 
 		LoadFiles(configFilePath);
 
-		compiler->configureSetting(setting);
+		compiler->ConfigureSetting(setting);
 		compiler->Compile();
 
 		bool compileError = compiler->compileError();

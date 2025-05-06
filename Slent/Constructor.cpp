@@ -1,5 +1,7 @@
 #include "Constructor.h"
 
+using namespace Slent;
+
 std::string Constructor::getName() const {
     return name;
 }
