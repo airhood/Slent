@@ -6,6 +6,8 @@
 #include <sstream>
 #include <functional>
 #include <fstream>
+#include <variant>
+#include <stack>
 
 #include "Slent.h"
 
@@ -1550,7 +1552,13 @@ vector<Constructor*> SlentCompiler::getClassVariables(vector<Token> tokens, Scop
 				i = k + 1;
 			}
 			else if (tokens[k + 1].value == "=") {
-				auto result = getExpression(tokens, i + 2, 0);
+				int next_semicolon = findNextSemicolon(tokens, i + 2);
+				if (next_semicolon == -1) {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+					next_semicolon = tokens.size() - 1;
+				}
+
+				auto result = getExpression(tokens, Scope(i + 2, next_semicolon), 0);
 				if (!get<bool>(result)) continue;
 				Constructor* variable_init = get<Constructor*>(result);
 				variable_init->setName("variable_init");
@@ -1638,6 +1646,17 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 	Constructor* function_body = new Constructor();
 	function_body->setName("body");
 	vector<vector<Token>> split = split_token(tokens, scope, ";");
+
+
+	enum State {
+		NONE,
+		IF,
+		ELSE
+	};
+
+	State state = NONE;
+	Constructor* temp = nullptr;
+
 	for (int i = scope.start; i <= scope.end; i++) {
 
 		if (tokens[i].value == ";") {
@@ -1792,7 +1811,13 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 					continue;
 				}
 
-				auto result = getExpression(tokens, i + k + 2, 0);
+				int next_semicolon = findNextSemicolon(tokens, i + k + 2);
+				if (next_semicolon == -1) {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+					next_semicolon = tokens.size() - 1;
+				}
+
+				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0);
 				if (!get<bool>(result)) continue;
 				Constructor* variable_init = get<Constructor*>(result);
 				variable_init->setName("variable_init");
@@ -1812,18 +1837,20 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 			if (!vec_check_index(tokens, i + 1)) {
 				throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
-				continue;
+				break;
 			}
 
 			// get type
 			if ((tokens[i + 1].type != TokenType::KEYWORD) && (tokens[i + 1].type != TokenType::IDENTIFIER)) {
 				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i].line));
+				i = findNextSemicolon(tokens, i + 1);
+				if (i == -1) break;
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + 2)) {
 				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
-				continue;
+				break;
 			}
 
 			int k;
@@ -1832,7 +1859,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			if (tokens[i + 2].type == TokenType::IDENTIFIER) {
 				if (!vec_check_index(tokens, i + 3)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
-					continue;
+					break;
 				}
 
 				int reference_offset = 0;
@@ -1850,11 +1877,13 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 				if (!vec_check_index(tokens, i + 3 + reference_offset)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2 + reference_offset].line));
-					continue;
+					break;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (tokens[i + 3 + reference_offset].value == ":") {
 					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 3 + reference_offset].line));
+					i = findNextSemicolon(tokens, i + 3 + reference_offset);
+					if (i == -1) break;
 					continue;
 				}
 
@@ -1863,7 +1892,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			else if (tokens[i + 2].value == "?") {
 				if (!vec_check_index(tokens, i + 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
-					continue;
+					break;
 				}
 
 				int reference_offset = 0;
@@ -1878,6 +1907,8 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 				if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3 + reference_offset].line));
+					i = findNextSemicolon(tokens, i + 3 + reference_offset);
+					if (i == -1) break;
 					continue;
 				}
 
@@ -1886,11 +1917,13 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 				if (!vec_check_index(tokens, i + 4 + reference_offset)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3 + reference_offset].line));
-					continue;
+					break;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (tokens[i + 4 + reference_offset].value == ":") {
 					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4 + reference_offset].line));
+					i = findNextSemicolon(tokens, i + 4 + reference_offset);
+					if (i == -1) break;
 					continue;
 				}
 
@@ -1902,22 +1935,26 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 				if (!vec_check_index(tokens, i + 3)) {
 					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
-					continue;
+					break;
 				}
 
 				if (tokens[i + 3].type != TokenType::IDENTIFIER) {
 					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
+					i = findNextSemicolon(tokens, i + 3);
+					if (i == -1) break;
 					continue;
 				}
 				variable_declear->addProperty("name", tokens[i + 3].value);
 
 				if (!vec_check_index(tokens, i + 4)) {
 					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3].line));
-					continue;
+					break;
 				}
 				// variable access_modifier is not allowed when declearing local variable
 				if (tokens[i + 4].value == ":") {
 					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4].line));
+					i = findNextSemicolon(tokens, i + 4);
+					if (i == -1) break;
 					continue;
 				}
 
@@ -1933,16 +1970,19 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			else if (tokens[i + 2].value == ";") {
 				variable_declear->addProperty("name", tokens[i + 1].value);
 				throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
+				i = i + 2;
 				continue;
 			}
 			else {
 				throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
+				i = findNextSemicolon(tokens, i + 2);
+				if (i == -1) break;
 				continue;
 			}
 
 			if (!vec_check_index(tokens, i + k + 1)) {
 				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k].line));
-				continue;
+				break;
 			}
 
 			if (tokens[i + k + 1].value == ";") {
@@ -1950,15 +1990,23 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				variable_init->setName("variable_init");
 				variable_declear->addProperty(variable_init);
 				function_body->addProperty(variable_declear);
+				i = i + k + 1;
 				continue;
 			}
 			else if (tokens[i + k + 1].value == "=") {
-				auto result = getExpression(tokens, i + k + 2, 0);
+				int next_semicolon = findNextSemicolon(tokens, i + k + 1);
+				if (next_semicolon == -1) {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+					next_semicolon = tokens.size() - 1;
+				}
+
+				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0);
 				if (!get<bool>(result)) continue;
 				Constructor* variable_init = get<Constructor*>(result);
 				variable_init->setName("variable_init");
 				variable_declear->addProperty(variable_init);
 				function_body->addProperty(variable_declear);
+				i = next_semicolon;
 				continue;
 			}
 			else {
@@ -1981,12 +2029,18 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				continue;
 			}
 
-			auto result = getExpression(tokens, i + 1, 0);
+			int next_semicolon = findNextSemicolon(tokens, i + 1);
+			if (next_semicolon == -1) {
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+				next_semicolon = tokens.size() - 1;
+			}
+
+			auto result = getExpression(tokens, Scope(i + 1, next_semicolon), 0);
 			if (!get<bool>(result)) continue;
 			Constructor* return_val_expression = get<Constructor*>(result);
-			return_val_expression->setName("value");
 			return_->addProperty(return_val_expression);
 			function_body->addProperty(return_);
+			i = next_semicolon;
 			continue;
 		}
 		else if (tokens[i].value == "if") {
@@ -2010,7 +2064,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 						continue;
 					}
 
-					tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, i + 2, 0, bracket_end);
+					tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0);
 					if (!get<bool>(condition_expression_result)) continue;
 					Constructor* condition_expression = get<Constructor*>(condition_expression_result);
 					condition_expression->setName("condition");
@@ -2021,32 +2075,83 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 						continue;
 					}
 
-					if (tokens[bracket_end + 1].value != "{") {
-						throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
-						continue;
-					}
+					int body_end;
 
-					if (!vec_check_index(tokens, bracket_end + 2)) {
-						throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
-						continue;
-					}
+					if (tokens[bracket_end + 1].value == "{") {
+						if (!vec_check_index(tokens, bracket_end + 2)) {
+							throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
+							continue;
+						}
 
-					int body_end = findBraceClose(tokens, bracket_end + 2, 1);
-					if (body_end == -1) {
-						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
-						continue;
-					}
+						body_end = findBraceClose(tokens, bracket_end + 2, 1);
+						if (body_end == -1) {
+							throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+							continue;
+						}
 
-					Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end - 1));
-					body->setName("body");
-					if_->addProperty(body);
+						Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end - 1));
+						body->setName("then_body");
+						if_->addProperty(body);
+					}
+					else {
+						body_end = findNextSemicolon(tokens, bracket_end + 1);
+						if (body_end == -1) {
+							throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+							continue;
+						}
+
+						Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end));
+						body->setName("then_body");
+						if_->addProperty(body);
+					}
 
 					function_body->addProperty(if_);
+					i = body_end;
+
+					state = IF;
+					temp = if_;
 				}
 			}
 			else {
 				throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
 				continue;
+			}
+		}
+		else if (tokens[i].value == "else") {
+			Constructor* else_ = new Constructor();
+			else_->setName("else_body");
+			if (!vec_check_index(tokens, i + 1)) {
+				if (state != IF) {
+					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+					break;
+				}
+
+				if (temp != nullptr) {
+					temp->addProperty(else_);
+				}
+				break;
+			}
+
+			if (tokens[i + 1].value == "if") { // else if { }
+				temp->addProperty(else_);
+			}
+			else { // else { }
+				if (tokens[i + 1].value != "{") {
+					throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+					continue;
+				}
+
+				int body_end = findBraceClose(tokens, i + 2, 1);
+				if (body_end == -1) {
+
+				}
+			}
+
+			if (state == IF) {
+
+			}
+			else {
+				throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
 			}
 		}
 		else if (tokens[i].value == "for") {
@@ -2072,11 +2177,15 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 					vector<vector<Token>> condition_split = split_token(tokens, Scope(i + 2, bracket_end - 1), ";");
 					if (condition_split.size() < 3) {
+						throwCompileMessage(CompileMessage(SL0027E, currentFileName, condition_split[2].back().line));
 						continue;
 					}
 					else if (condition_split.size() > 3) {
+						throwCompileMessage(CompileMessage(SL0018E, currentFileName, condition_split.back().back().line));
 						continue;
 					}
+
+
 				}
 			}
 			else {
@@ -2084,6 +2193,8 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				continue;
 			}
 		}
+
+		state = NONE;
 		
 		int next_semicolon = findNextSemicolon(tokens, i);
 		if (next_semicolon == -1) {
@@ -2091,7 +2202,8 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			continue;
 		}
 
-		tuple<Constructor*, bool> expression = getExpression(tokens, i, next_semicolon);
+		tuple<Constructor*, bool> expression = getExpression(tokens, Scope(i, next_semicolon), 0);
+		i = next_semicolon;
 		if (!get<bool>(expression)) continue;
 
 		function_body->addProperty(get<Constructor*>(expression));
@@ -2101,303 +2213,216 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 	return function_body;
 }
 
-tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> tokens, int start_index, int depth, int end = 0) {
-	Constructor* expression = new Constructor();
-	expression->setName("expression");
+tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> tokens, Scope scope, int depth) {
+	int current_token_index = scope.start;
 
-	if (end == 0) end = tokens.size();
+	Constructor* result_expr = parseExpressionPrecedence(tokens, current_token_index, -100, depth);
 
-	// ((depth == 0) ? end : bracket_close)
-	int range;
-	if (depth == 0) range = end;
-	else {
-		int bracket_close = findBracketClose(tokens, start_index, 1);
-		if (bracket_close == -1) {
-			throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[start_index].line));
-			return make_tuple(new Constructor(), false);
-		}
-		range = bracket_close;
+	if (result_expr == nullptr) {
+		return std::make_tuple(new Constructor(), false);
 	}
 
-	for (int i = start_index; i < range; i++) {
-		function<tuple<Constructor*, bool>(bool)> getReference;
-		getReference = [tokens, &i, this, &getReference](bool origin) -> tuple<Constructor*, bool> {
-			if (tokens[i].type != TokenType::IDENTIFIER) return make_tuple(new Constructor(), false);
+	return std::make_tuple(result_expr, true);
+}
 
-			Constructor* reference = new Constructor();
+Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& current_token_index, int depth) {
+	if (!vec_check_index(tokens, current_token_index)) {
+		return nullptr;
+	}
 
-			if (origin) {
-				reference->setName("reference");
-				auto result = getReference(false);
-				Constructor* reference_detail = get<Constructor*>(result);
-				reference->addProperty(reference_detail);
-				return make_tuple(reference, true);
+	const Token& current_token = tokens[current_token_index];
+
+	if (current_token.type == TokenType::CONSTANT || current_token.type == TokenType::LITERAL) {
+		Constructor* constant = new Constructor(current_token.type == TokenType::CONSTANT ? "constant" : "literal", current_token.value);
+		current_token_index++;
+		return constant;
+	}
+	else if (current_token.type == TokenType::IDENTIFIER) {
+		std::string identifier_value = current_token.value;
+		current_token_index++;
+
+		Constructor* ref_node = new Constructor("reference", identifier_value);
+
+		while (vec_check_index(tokens, current_token_index) && tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == ".") {
+			current_token_index++;
+
+			if (!vec_check_index(tokens, current_token_index) || tokens[current_token_index].type != TokenType::IDENTIFIER) {
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[current_token_index - 1].line));
+				return nullptr;
 			}
+			std::string member_name_value = tokens[current_token_index].value;
+			current_token_index++;
 
-			reference->setName(tokens[i].value);
+			Constructor* member_access_node = new Constructor("member_access");
+			member_access_node->addProperty("object", ref_node);
+			member_access_node->addProperty("member", new Constructor("identifier", member_name_value));
+			ref_node = member_access_node;
+		}
 
-			if (vec_check_index(tokens, i + 1)) {
-				if (tokens[i + 1].value == ".") {
-					if (vec_check_index(tokens, i + 2) && (tokens[i + 2].type == TokenType::IDENTIFIER)) {
-						i = i + 2;
-						auto result = getReference(false);
-						if (!get<bool>(result)) {
-							return make_tuple(new Constructor(), false);
-						}
-						Constructor* access_detail = get<Constructor*>(result);
-						Constructor* member_access = new Constructor();
-						member_access->setName("member_access");
-						if (access_detail->getProperties().size() != 0) {
-							member_access->addProperty(access_detail);
-						}
-						reference->addProperty(member_access);
+		if (vec_check_index(tokens, current_token_index) && tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == "(") {
+			current_token_index++;
+
+			Constructor* function_call_node = new Constructor("function_call");
+			function_call_node->addProperty("function", ref_node);
+
+			bool first_arg = true;
+			while (vec_check_index(tokens, current_token_index) && !(tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == ")")) {
+				if (!first_arg) {
+					if (tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == ",") {
+						current_token_index++;
 					}
 					else {
-						throwCompileMessage(CompileMessage(SL0018E, currentFileName, i + 1));
-						return make_tuple(new Constructor(), false);
+						throwCompileMessage(CompileMessage(SL0023E, currentFileName, tokens[current_token_index].line));
+						return nullptr;
 					}
 				}
-				else {
-					return make_tuple(reference, true);
-				}
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, i));
-				return make_tuple(new Constructor(), false);
+				Constructor* arg_expr = parseExpressionPrecedence(tokens, current_token_index, -100, depth);
+				if (arg_expr == nullptr) return nullptr;
+
+				Constructor* args = new Constructor("args");
+				args->addProperty(arg_expr);
+				function_call_node->addProperty(args);
+				first_arg = false;
 			}
 
-			return make_tuple(reference, true);
-		};
-
-		if (tokens[i].type == TokenType::IDENTIFIER) {
-			if (tokens.size() <= (i + 1)) return make_tuple(new Constructor(), false);
-
-			// function call
-			if (tokens[i + 1].value == "(") {
-				Constructor* function_call = new Constructor();
-				function_call->setName("function_call");
-				function_call->addProperty("func_name", tokens[i].value);
-				tuple<Constructor*, bool> get_parameter = getExpression(tokens, i + 2, depth + 1);
-				if (!get<bool>(get_parameter)) { // conversion of lower depth failed
-					i = findBracketClose(tokens, i + 1, 0);
-					if (i == -1) break;
-					continue;
-				}
-				if (findBracketClose(tokens, i + 1, 0) == -1) {
-					throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 1].line));
-					return make_tuple(new Constructor(), false);
-				}
-				Constructor* parameter_constructor = get<Constructor*>(get_parameter);
-				parameter_constructor->setName("parameters");
-				function_call->addProperty(parameter_constructor);
-				expression->addProperty(function_call);
-				i = findBracketClose(tokens, i + 1, 0);
-				if (i == -1) break;
-				continue;
+			if (!vec_check_index(tokens, current_token_index) || !(tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == ")")) {
+				int error_line = (current_token_index >= tokens.size()) ? tokens[current_token_index - 1].line : tokens[current_token_index].line;
+				throwCompileMessage(CompileMessage(SL0027E, currentFileName, error_line)); // Missing ')'
+				return nullptr;
 			}
-			else {
-				auto result = getReference(true);
-				if (!get<bool>(result)) continue;
-				expression->addProperty(get<Constructor*>(result));
-				continue;
-			}
+			current_token_index++;
+			return function_call_node;
 		}
 
-		if (tokens[i].type == TokenType::CONSTANT) {
-			Constructor* constant = new Constructor();
-			constant->setName("constant");
-			constant->setValue(tokens[i].value);
+		return ref_node;
+	}
+	else if (current_token.type == TokenType::SPECIAL_SYMBOL && current_token.value == "(") {
+		current_token_index++;
+		Constructor* inner_expression = parseExpressionPrecedence(tokens, current_token_index, -100, depth);
+		if (inner_expression == nullptr) return nullptr;
+
+		if (!vec_check_index(tokens, current_token_index) || !(tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == ")")) {
+			int error_line = (current_token_index >= tokens.size()) ? tokens[current_token_index - 1].line : tokens[current_token_index].line;
+			throwCompileMessage(CompileMessage(SL0027E, currentFileName, error_line));
+			return nullptr;
+		}
+		current_token_index++;
+		return inner_expression;
+	}
+
+	throwCompileMessage(CompileMessage(SL0000E(current_token.value), currentFileName, current_token.line)); // Unrecognized token
+	return nullptr;
+}
+
+Constructor* SlentCompiler::parsePrefixOperator(const std::vector<Token>& tokens, int& current_token_index, int depth) {
+	if (!vec_check_index(tokens, current_token_index) || tokens[current_token_index].type != TokenType::OPERATOR) {
+		return nullptr;
+	}
+
+	const OperatorInfo* op_info = getOperatorInfo(tokens[current_token_index].value, true, false);
+	if (!op_info || !op_info->is_unary_prefix) {
+		return nullptr;
+	}
+
+	std::string op_value = tokens[current_token_index].value;
+	current_token_index++;
+
+	Constructor* operand_node = parseExpressionPrecedence(tokens, current_token_index, op_info->precedence, depth);
+	if (operand_node == nullptr) {
+		throwCompileMessage(CompileMessage(SL0017E, currentFileName, tokens[current_token_index - 1].line));
+		return nullptr;
+	}
+
+	Constructor* operation = new Constructor("unary_operation", op_value);
+	operation->addProperty("operand", operand_node);
+	return operation;
+}
+
+Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& tokens, int& current_token_index, int min_precedence, int depth) {
+	Constructor* left_expr;
+
+	if (isPrefixOperator(tokens, current_token_index)) {
+		left_expr = parsePrefixOperator(tokens, current_token_index, depth);
+	}
+	else {
+		left_expr = parsePrimary(tokens, current_token_index, depth);
+	}
+
+	if (left_expr == nullptr) {
+		return nullptr;
+	}
+
+	while (vec_check_index(tokens, current_token_index) && tokens[current_token_index].type == TokenType::OPERATOR) {
+		const OperatorInfo* postfix_op_info = getOperatorInfo(tokens[current_token_index].value, false, true);
+		if (postfix_op_info && postfix_op_info->precedence >= min_precedence) {
+			std::string op_value = tokens[current_token_index].value;
+			current_token_index++;
+			Constructor* operation = new Constructor("unary_operation", op_value);
+			operation->addProperty("operand", left_expr);
+			left_expr = operation;
 			continue;
 		}
 
-		if (tokens[i].value == "7") {
-			cout << "seven!!" << endl;
+		const OperatorInfo* op_info = getOperatorInfo(tokens[current_token_index].value, false, false);
+		if (!op_info || op_info->precedence < min_precedence) {
+			break;
 		}
 
-		if (tokens[i].type == TokenType::LITERAL) {
-			Constructor* literal = new Constructor();
-			literal->setName("constant");
-			literal->setValue(tokens[i].value);
-			continue;
+		std::string op_value = tokens[current_token_index].value;
+		int op_precedence = op_info->precedence;
+		OperatorInfo::Associativity op_associativity = op_info->associativity;
+
+		current_token_index++;
+
+		int next_min_precedence = op_precedence;
+		if (op_associativity == OperatorInfo::LEFT) {
+			next_min_precedence = op_precedence + 1;
 		}
 
-		if (tokens[i].type == TokenType::OPERATOR) {
+		Constructor* right_expr = parseExpressionPrecedence(tokens, current_token_index, next_min_precedence, depth);
+		if (right_expr == nullptr) {
+			throwCompileMessage(CompileMessage(SL0017E, currentFileName, tokens[current_token_index - 1].line));
+			return nullptr;
+		}
 
-			struct Operator {
-				Operator(string value, bool left, bool right) {
-					this->value = value;
-					this->left = left;
-					this->right = right;
-				}
+		Constructor* operation = new Constructor("binary_operation");
+		operation->addProperty("op_value", op_value);
+		operation->addProperty("left", left_expr);
+		operation->addProperty("right", right_expr);
 
-				string value;
-				bool left, right;
-			};
+		left_expr = operation;
+	}
 
-			const vector<Operator> arithmetic_operators = {
-				Operator("+", true, true),
-				Operator("-", true, true),
-				Operator("*", true, true),
-				Operator("/", true, true),
-				Operator("%", true, true)
-			};
-			const vector<Operator> relational_operators = {
-				Operator("==", true, true),
-				Operator("!=", true, true),
-				Operator("<", true, true),
-				Operator(">", true, true),
-				Operator("<=", true, true),
-				Operator(">=", true, true)
-			};
-			const vector<Operator> logical_operators = {
-				Operator("&&", true, true),
-				Operator("||", true, true),
-				Operator("!", false, true)
-			};
-			const vector<Operator> increment_and_decrement_operators = {
-				Operator("++", true, false),
-				Operator("--", true, false),
-				Operator("++", false, true),
-				Operator("--", false, true)
-			};
-			const vector<Operator> bitwise_operators = {
-				Operator("<<", true, true),
-				Operator(">>", true, true),
-				Operator("~", false, true),
-				Operator("&", true, true),
-				Operator("^", true, true)
-			};
-			const vector<Operator> assignment_operators = {
-				Operator("=", true, true),
-				Operator("+=", true, true),
-				Operator("-=", true, true),
-				Operator("*=", true, true),
-				Operator("/=", true, true),
-				Operator("%=", true, true),
-				Operator("<<=", true, true),
-				Operator(">>=", true, true),
-				Operator("&=", true, true),
-				Operator("^=", true, true)
-			};
+	return left_expr;
+}
 
-			// get operation by getting expression of left and right side of operator
-			auto getOperation = [tokens, &i, this, &expression, &depth](Operator operator_info) -> tuple<Constructor*, bool> {
-				Constructor* operation = new Constructor();
-				operation->setName("operation");
-				operation->addProperty("type", tokens[i].value);
-				Constructor* left = new Constructor();
-				left->setName("left");
-				Constructor* right = new Constructor();
-				right->setName("right");
-
-				if (!operator_info.left && !operator_info.right) {
-					cerr << "! Compiler internal error (code: SC0002)" << endl;
-				}
-
-				// left side of operator
-				if (operator_info.left) {
-					for (int j = 0; j < expression->getProperties().size(); j++) {
-						left->addProperty(expression->getProperties()[j]);
-					}
-				}
-
-				cout << "line[i + 1]: " << tokens[i + 1].value << endl;
-
-				// right side of operator
-				if (operator_info.right) {
-					tuple<Constructor*, bool> right_expression_result = getExpression(tokens, i + 1, depth);
-					if (!get<bool>(right_expression_result)) {
-						return make_tuple(new Constructor(), false);
-					}
-					for (int j = 0; j < get<Constructor*>(right_expression_result)->getProperties().size(); j++) {
-						right->addProperty(get<Constructor*>(right_expression_result)->getProperties()[j]);
-					}
-				}
-
-				operation->addProperty(left);
-				operation->addProperty(right);
-				return make_tuple(operation, true);
-			};
-
-			auto operator_compare = [&tokens, &i](Operator element) -> bool {
-				return element.value == tokens[i].value;
-			};
-
-			auto arithmetic_operator_find = find_if(arithmetic_operators.begin(), arithmetic_operators.end(), operator_compare);
-			if (arithmetic_operator_find != arithmetic_operators.end()) {
-				tuple<Constructor*, bool> getOperation_result = getOperation(*arithmetic_operator_find);
-				if (!get<bool>(getOperation_result)) {
-					return make_tuple(new Constructor(), false);
-				}
-				expression->addProperty(get<Constructor*>(getOperation_result));
-				i = findBracketClose(tokens, i, depth);
-				if (i == -1) break;
-				continue;
+const OperatorInfo* SlentCompiler::getOperatorInfo(const std::string& op_value, bool is_unary_prefix_check, bool is_unary_postfix_check) {
+	for (const auto& op : all_operators) {
+		if (op.value == op_value) {
+			if (is_unary_prefix_check) {
+				if (op.is_unary_prefix) return &op;
 			}
-			auto relational_operator_find = find_if(relational_operators.begin(), relational_operators.end(), operator_compare);
-			if (relational_operator_find != relational_operators.end()) {
-				tuple<Constructor*, bool> getOperation_result = getOperation(*relational_operator_find);
-				if (!get<bool>(getOperation_result)) {
-					return make_tuple(new Constructor(), false);
-				}
-				expression->addProperty(get<Constructor*>(getOperation_result));
-				i = findBracketClose(tokens, i, depth);
-				if (i == -1) break;
-				continue;
+			else if (is_unary_postfix_check) {
+				if (op.is_unary_postfix) return &op;
 			}
-			auto logical_operator_find = find_if(logical_operators.begin(), logical_operators.end(), operator_compare);
-			if (logical_operator_find != logical_operators.end()) {
-				tuple<Constructor*, bool> getOperation_result = getOperation(*logical_operator_find);
-				if (!get<bool>(getOperation_result)) {
-					return make_tuple(new Constructor(), false);
-				}
-				expression->addProperty(get<Constructor*>(getOperation_result));
-				i = findBracketClose(tokens, i, depth);
-				if (i == -1) break;
-				continue;
-			}
-			auto increment_and_decrement_operator_find = find_if(increment_and_decrement_operators.begin(), increment_and_decrement_operators.end(), operator_compare);
-			if (increment_and_decrement_operator_find != increment_and_decrement_operators.end()) {
-				tuple<Constructor*, bool> getOperation_result = getOperation(*increment_and_decrement_operator_find);
-				if (!get<bool>(getOperation_result)) {
-					return make_tuple(new Constructor(), false);
-				}
-				expression->addProperty(get<Constructor*>(getOperation_result));
-				i = findBracketClose(tokens, i, depth);
-				if (i == -1) break;
-				continue;
-			}
-			auto bitwise_operator_find = find_if(bitwise_operators.begin(), bitwise_operators.end(), operator_compare);
-			if (bitwise_operator_find != bitwise_operators.end()) {
-				tuple<Constructor*, bool> getOperation_result = getOperation(*bitwise_operator_find);
-				if (!get<bool>(getOperation_result)) {
-					return make_tuple(new Constructor(), false);
-				}
-				expression->addProperty(get<Constructor*>(getOperation_result));
-				i = findBracketClose(tokens, i, depth);
-				if (i == -1) break;
-				continue;
-			}
-			auto assignment_operator_find = find_if(assignment_operators.begin(), assignment_operators.end(), operator_compare);
-			if (assignment_operator_find != assignment_operators.end()) {
-				if (depth != 0) {
-					throwCompileMessage(CompileMessage(SL0024E, currentFileName, tokens[i].line));
-					return make_tuple(new Constructor(), false);
-				}
-
-				tuple<Constructor*, bool> getOperation_result = getOperation(*assignment_operator_find);
-				if (!get<bool>(getOperation_result)) {
-					return make_tuple(new Constructor(), false);
-				}
-				expression->addProperty(get<Constructor*>(getOperation_result));
-				i = findBracketClose(tokens, i, depth);
-				if (i == -1) break;
-				continue;
+			else {
+				if (!op.is_unary_prefix && !op.is_unary_postfix) return &op;
 			}
 		}
 	}
+	return nullptr;
+}
 
-	return make_tuple(expression, true);
+bool SlentCompiler::isPrefixOperator(const vector<Token>& tokens, int index) {
+	if (!vec_check_index(tokens, index) || tokens[index].type != TokenType::OPERATOR) return false;
+	const OperatorInfo* op_info = getOperatorInfo(tokens[index].value, true, false);
+	return op_info != nullptr && op_info->is_unary_prefix;
+}
+
+bool SlentCompiler::isPostfixOperator(const vector<Token>& tokens, int index) {
+	if (!vec_check_index(tokens, index) || tokens[index].type != TokenType::OPERATOR) return false;
+	const OperatorInfo* op_info = getOperatorInfo(tokens[index].value, false, true);
+	return op_info != nullptr && op_info->is_unary_postfix;
 }
 
 tuple<Constructor*, bool> SlentCompiler::getExternalFunction(vector<Token> tokens, int cursor, bool isDynamic) {

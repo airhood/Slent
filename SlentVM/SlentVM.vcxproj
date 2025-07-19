@@ -20,6 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bit_utils.h" />
+    <ClCompile Include="CallStack.cpp" />
+    <ClCompile Include="CallStack.h" />
     <ClCompile Include="GC.cpp" />
     <ClCompile Include="HeapManager.cpp" />
     <ClCompile Include="SlentVM.cpp" />

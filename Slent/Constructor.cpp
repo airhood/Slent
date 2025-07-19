@@ -1,6 +1,13 @@
 #include "Constructor.h"
+#include <iostream>
 
 using namespace Slent;
+
+Constructor::~Constructor() {
+    for (Constructor* prop : properties) {
+        delete prop;
+    }
+}
 
 std::string Constructor::getName() const {
     return name;
@@ -11,26 +18,28 @@ void Constructor::setName(std::string name) {
 }
 
 Constructor* Constructor::getProperty(int index) const {
-    if ((index + 1) > properties.size()) return new Constructor();
-    return properties.at(index);
+    if (index >= 0 && index < properties.size()) {
+        return properties.at(index);
+    }
+    return nullptr;
 }
 
 Constructor* Constructor::getProperty(std::string name) const {
-    for (int i = 0; i < properties.size(); i++) {
-        if (properties.at(i)->getName() == name) {
-            return properties.at(i);
+    for (Constructor* prop : properties) {
+        if (prop->getName() == name) {
+            return prop;
         }
     }
-    return new Constructor();
+    return nullptr;
 }
 
 bool Constructor::propertyExist(int index) const {
-    return properties.size() >= (index + 1);
+    return properties.size() > index;
 }
 
 bool Constructor::propertyExist(std::string name) const {
-    for (int i = 0; i < properties.size(); i++) {
-        if (properties.at(i)->getName() == name) {
+    for (Constructor* prop : properties) {
+        if (prop->getName() == name) {
             return true;
         }
     }
@@ -42,16 +51,25 @@ std::vector<Constructor*> Constructor::getProperties() const {
 }
 
 void Constructor::addProperty(std::string name, std::string value) {
-    this->value = "[object]";
-    Constructor* valueConstructor = new Constructor();
-    valueConstructor->setName(name);
-    valueConstructor->setValue(value);
+    Constructor* valueConstructor = new Constructor(name, value);
     properties.push_back(valueConstructor);
 }
 
 void Constructor::addProperty(Constructor* property) {
-    value = "[object]";
     properties.push_back(property);
+}
+
+void Constructor::addProperty(std::string prop_name, Constructor* child_node) {
+    Constructor* wrapper_node = new Constructor(prop_name);
+    wrapper_node->addProperty(child_node);
+    properties.push_back(wrapper_node);
+}
+
+void Constructor::clearProperty() {
+    for (Constructor* prop : properties) {
+        delete prop;
+    }
+    properties.clear();
 }
 
 void Constructor::setValue(std::string value) {
@@ -68,7 +86,7 @@ std::string Constructor::getValue() const {
 
 std::string Constructor::toString() const {
     if (value != "[object]") {
-        return name;
+        return name + ": " + value;
     }
     std::string str = name;
     str.append("{");
@@ -76,7 +94,6 @@ std::string Constructor::toString() const {
         if (i != 0) {
             str.append(",");
         }
-        
         str.append(properties.at(i)->toString());
     }
     str.append("}");
@@ -94,6 +111,7 @@ std::string Constructor::toPrettyString(int depth) const {
         str.append(value);
         return str;
     }
+
     std::string str = "";
     for (int i = 0; i < depth; i++) {
         str.append("  ");
@@ -104,7 +122,6 @@ std::string Constructor::toPrettyString(int depth) const {
         if (i != 0) {
             str.append(",\n");
         }
-        
         str.append(properties.at(i)->toPrettyString(depth + 1));
     }
     str.append("\n");

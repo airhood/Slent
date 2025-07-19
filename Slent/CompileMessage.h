@@ -58,8 +58,9 @@
 #define SL0041E MessageType::ERROR, "'import' keyword can only be used at root scope."
 #define SL0042E MessageType::ERROR, "Import module name expected."
 #define SL0043E MessageType::ERROR, "Condition statement missing."
-#define SL0044E MessageType::ERROR, "if statement body missing."
+#define SL0044E MessageType::ERROR, "Body missing."
 #define SL0045E MessageType::ERROR, "Missing initial value."
+#define SL0046E MessageType::ERROR, "else statement can only be used after if statement"
 
 
 #elif COMPILER_MESSAGE_LANG == KOREAN

@@ -127,6 +127,75 @@ namespace Slent {
         Scope(int start, int end) : start(start), end(end) {}
     };
 
+    struct OperatorInfo {
+        std::string value;
+        int precedence; // 숫자가 높을수록 우선순위 높음
+        enum Associativity { LEFT, RIGHT } associativity;
+        bool is_unary_prefix;  // 단항 접두사 (예: !)
+        bool is_unary_postfix; // 단항 접미사 (예: ++)
+
+        OperatorInfo(std::string val, int prec, Associativity assoc, bool unary_prefix = false, bool unary_postfix = false)
+            : value(val), precedence(prec), associativity(assoc), is_unary_prefix(unary_prefix), is_unary_postfix(unary_postfix) {
+        }
+    };
+
+    const std::vector<OperatorInfo> all_operators = {
+        // Postfix Unary Operators (가장 높은 우선순위) - 예: arr[index], func(), ++, --
+        // 이들은 TokenType::OPERATOR로 분류되지만, 파서에서 특별히 처리합니다.
+        OperatorInfo("++", 7, OperatorInfo::LEFT, false, true), // 후위 증감
+        OperatorInfo("--", 7, OperatorInfo::LEFT, false, true), // 후위 감소
+        // 참고: 배열 인덱싱 '[]' 및 함수 호출 '()'은 일반적으로 OPERATOR가 아닌 SPECIAL_SYMBOL로 처리되며,
+        // parsePrimary에서 특별한 문법으로 다뤄집니다.
+
+        // Prefix Unary Operators - 예: !, ~, +, - (단항), ++, --
+        OperatorInfo("!", 6, OperatorInfo::RIGHT, true),  // 논리 NOT
+        OperatorInfo("~", 6, OperatorInfo::RIGHT, true),  // 비트 NOT
+        OperatorInfo("+", 6, OperatorInfo::RIGHT, true),  // 단항 플러스
+        OperatorInfo("-", 6, OperatorInfo::RIGHT, true),  // 단항 마이너스
+        OperatorInfo("++", 6, OperatorInfo::RIGHT, true), // 전위 증감
+        OperatorInfo("--", 6, OperatorInfo::RIGHT, true), // 전위 감소
+
+        // Multiplicative Operators
+        OperatorInfo("*", 5, OperatorInfo::LEFT), // 곱셈
+        OperatorInfo("/", 5, OperatorInfo::LEFT), // 나눗셈
+        OperatorInfo("%", 5, OperatorInfo::LEFT), // 나머지
+
+        // Additive Operators
+        OperatorInfo("+", 4, OperatorInfo::LEFT), // 덧셈 (이항)
+        OperatorInfo("-", 4, OperatorInfo::LEFT), // 뺄셈 (이항)
+
+        // Shift Operators
+        OperatorInfo("<<", 3, OperatorInfo::LEFT),
+        OperatorInfo(">>", 3, OperatorInfo::LEFT),
+
+        // Relational Operators
+        OperatorInfo("<", 2, OperatorInfo::LEFT),
+        OperatorInfo(">", 2, OperatorInfo::LEFT),
+        OperatorInfo("<=", 2, OperatorInfo::LEFT),
+        OperatorInfo(">=", 2, OperatorInfo::LEFT),
+
+        // Equality Operators
+        OperatorInfo("==", 1, OperatorInfo::LEFT),
+        OperatorInfo("!=", 1, OperatorInfo::LEFT),
+
+        // Logical AND (비트 AND &는 보통 비교 연산자보다 높고, 논리 AND && 보다 높습니다.)
+        OperatorInfo("&&", 0, OperatorInfo::LEFT),
+
+        // Logical OR
+        OperatorInfo("||", -1, OperatorInfo::LEFT),
+
+        // Assignment Operators (가장 낮은 우선순위, 우측 결합성)
+        OperatorInfo("=", -2, OperatorInfo::RIGHT),
+        OperatorInfo("+=", -2, OperatorInfo::RIGHT),
+        OperatorInfo("-=", -2, OperatorInfo::RIGHT),
+        OperatorInfo("*=", -2, OperatorInfo::RIGHT),
+        OperatorInfo("/=", -2, OperatorInfo::RIGHT),
+        OperatorInfo("%=", -2, OperatorInfo::RIGHT),
+        OperatorInfo("<<=", -2, OperatorInfo::RIGHT),
+        OperatorInfo(">>=", -2, OperatorInfo::RIGHT),
+        // ... 기타 대입 연산자
+    };
+
     // Color constants for terminal output
     const int BLACK = 30;
     const int RED = 31;
@@ -218,7 +287,16 @@ namespace Slent {
         std::vector<Constructor*> getClassVariables(std::vector<Token> tokens, Scope scope);
         std::vector<Constructor*> getClassFunctions(std::vector<Token> tokens, Scope scope, bool includeBody);
         Constructor* getFunctionBody(std::vector<Token> tokens, Scope scope);
-        std::tuple<Constructor*, bool> getExpression(std::vector<Token> line, int start_index, int depth, int end = 0);
+        std::tuple<Constructor*, bool> getExpression(std::vector<Token> line, Scope scope, int depth);
+
+        Constructor* parsePrimary(const std::vector<Token>& tokens, int& current_token_index, int depth);
+        Constructor* parsePrefixOperator(const std::vector<Token>& tokens, int& current_token_index, int depth);
+        Constructor* parseExpressionPrecedence(const std::vector<Token>& tokens, int& current_token_index, int min_precedence, int depth);
+
+        const OperatorInfo* getOperatorInfo(const std::string& op_value, bool is_unary_prefix_check, bool is_unary_postfix_check);
+        bool isPrefixOperator(const std::vector<Token>& tokens, int index);
+        bool isPostfixOperator(const std::vector<Token>& tokens, int index);
+
         std::tuple<Constructor*, bool> getExternalFunction(std::vector<Token> tokens, int cursor, bool isDynamic);
         std::vector<std::vector<Token>> split_token(std::vector<Token> tokens, Scope scope, std::string delimiter);
         bool check_type(std::string type);
