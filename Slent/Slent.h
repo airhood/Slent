@@ -287,11 +287,12 @@ namespace Slent {
         std::vector<Constructor*> getClassVariables(std::vector<Token> tokens, Scope scope);
         std::vector<Constructor*> getClassFunctions(std::vector<Token> tokens, Scope scope, bool includeBody);
         Constructor* getFunctionBody(std::vector<Token> tokens, Scope scope);
-        std::tuple<Constructor*, bool> getExpression(std::vector<Token> line, Scope scope, int depth);
 
-        Constructor* parsePrimary(const std::vector<Token>& tokens, int& current_token_index, int depth);
-        Constructor* parsePrefixOperator(const std::vector<Token>& tokens, int& current_token_index, int depth);
-        Constructor* parseExpressionPrecedence(const std::vector<Token>& tokens, int& current_token_index, int min_precedence, int depth);
+        std::tuple<Constructor*, bool> getExpression(std::vector<Token> line, Scope scope, int depth, bool semicolon);
+
+        Constructor* parsePrimary(const std::vector<Token>& tokens, int& current_token_index, int depth, bool semicolon);
+        Constructor* parsePrefixOperator(const std::vector<Token>& tokens, int& current_token_index, int depth, bool semicolon);
+        Constructor* parseExpressionPrecedence(const std::vector<Token>& tokens, int& current_token_index, int min_precedence, int depth, bool semicolon);
 
         const OperatorInfo* getOperatorInfo(const std::string& op_value, bool is_unary_prefix_check, bool is_unary_postfix_check);
         bool isPrefixOperator(const std::vector<Token>& tokens, int index);

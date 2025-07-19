@@ -1558,7 +1558,7 @@ vector<Constructor*> SlentCompiler::getClassVariables(vector<Token> tokens, Scop
 					next_semicolon = tokens.size() - 1;
 				}
 
-				auto result = getExpression(tokens, Scope(i + 2, next_semicolon), 0);
+				auto result = getExpression(tokens, Scope(i + 2, next_semicolon), 0, true);
 				if (!get<bool>(result)) continue;
 				Constructor* variable_init = get<Constructor*>(result);
 				variable_init->setName("variable_init");
@@ -1817,7 +1817,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 					next_semicolon = tokens.size() - 1;
 				}
 
-				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0);
+				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0, true);
 				if (!get<bool>(result)) continue;
 				Constructor* variable_init = get<Constructor*>(result);
 				variable_init->setName("variable_init");
@@ -2000,7 +2000,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 					next_semicolon = tokens.size() - 1;
 				}
 
-				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0);
+				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0, true);
 				if (!get<bool>(result)) continue;
 				Constructor* variable_init = get<Constructor*>(result);
 				variable_init->setName("variable_init");
@@ -2035,7 +2035,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 				next_semicolon = tokens.size() - 1;
 			}
 
-			auto result = getExpression(tokens, Scope(i + 1, next_semicolon), 0);
+			auto result = getExpression(tokens, Scope(i + 1, next_semicolon), 0, true);
 			if (!get<bool>(result)) continue;
 			Constructor* return_val_expression = get<Constructor*>(result);
 			return_->addProperty(return_val_expression);
@@ -2064,8 +2064,10 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 						continue;
 					}
 
-					tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0);
-					if (!get<bool>(condition_expression_result)) continue;
+					tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0, false);
+					if (!get<bool>(condition_expression_result)) {
+						i = bracket_end;
+					}
 					Constructor* condition_expression = get<Constructor*>(condition_expression_result);
 					condition_expression->setName("condition");
 					if_->addProperty(condition_expression);
@@ -2083,13 +2085,14 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 							continue;
 						}
 
+						int body_start = findBraceClose(tokens, bracket_end, -1);
 						body_end = findBraceClose(tokens, bracket_end + 2, 1);
 						if (body_end == -1) {
 							throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
 							continue;
 						}
 
-						Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end - 1));
+						Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
 						body->setName("then_body");
 						if_->addProperty(body);
 					}
@@ -2110,6 +2113,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 					state = IF;
 					temp = if_;
+					continue;
 				}
 			}
 			else {
@@ -2202,7 +2206,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 			continue;
 		}
 
-		tuple<Constructor*, bool> expression = getExpression(tokens, Scope(i, next_semicolon), 0);
+		tuple<Constructor*, bool> expression = getExpression(tokens, Scope(i, next_semicolon), 0, true);
 		i = next_semicolon;
 		if (!get<bool>(expression)) continue;
 
@@ -2213,10 +2217,10 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 	return function_body;
 }
 
-tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> tokens, Scope scope, int depth) {
+tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> tokens, Scope scope, int depth, bool semicolon) {
 	int current_token_index = scope.start;
 
-	Constructor* result_expr = parseExpressionPrecedence(tokens, current_token_index, -100, depth);
+	Constructor* result_expr = parseExpressionPrecedence(tokens, current_token_index, -100, depth, semicolon);
 
 	if (result_expr == nullptr) {
 		return std::make_tuple(new Constructor(), false);
@@ -2225,7 +2229,7 @@ tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> tokens, Sco
 	return std::make_tuple(result_expr, true);
 }
 
-Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& current_token_index, int depth) {
+Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& current_token_index, int depth, bool semicolon) {
 	if (!vec_check_index(tokens, current_token_index)) {
 		return nullptr;
 	}
@@ -2276,7 +2280,7 @@ Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& 
 						return nullptr;
 					}
 				}
-				Constructor* arg_expr = parseExpressionPrecedence(tokens, current_token_index, -100, depth);
+				Constructor* arg_expr = parseExpressionPrecedence(tokens, current_token_index, -100, depth, false);
 				if (arg_expr == nullptr) return nullptr;
 
 				Constructor* args = new Constructor("args");
@@ -2298,7 +2302,7 @@ Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& 
 	}
 	else if (current_token.type == TokenType::SPECIAL_SYMBOL && current_token.value == "(") {
 		current_token_index++;
-		Constructor* inner_expression = parseExpressionPrecedence(tokens, current_token_index, -100, depth);
+		Constructor* inner_expression = parseExpressionPrecedence(tokens, current_token_index, -100, depth, semicolon);
 		if (inner_expression == nullptr) return nullptr;
 
 		if (!vec_check_index(tokens, current_token_index) || !(tokens[current_token_index].type == TokenType::SPECIAL_SYMBOL && tokens[current_token_index].value == ")")) {
@@ -2314,7 +2318,7 @@ Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& 
 	return nullptr;
 }
 
-Constructor* SlentCompiler::parsePrefixOperator(const std::vector<Token>& tokens, int& current_token_index, int depth) {
+Constructor* SlentCompiler::parsePrefixOperator(const std::vector<Token>& tokens, int& current_token_index, int depth, bool semicolon) {
 	if (!vec_check_index(tokens, current_token_index) || tokens[current_token_index].type != TokenType::OPERATOR) {
 		return nullptr;
 	}
@@ -2327,7 +2331,7 @@ Constructor* SlentCompiler::parsePrefixOperator(const std::vector<Token>& tokens
 	std::string op_value = tokens[current_token_index].value;
 	current_token_index++;
 
-	Constructor* operand_node = parseExpressionPrecedence(tokens, current_token_index, op_info->precedence, depth);
+	Constructor* operand_node = parseExpressionPrecedence(tokens, current_token_index, op_info->precedence, depth, semicolon);
 	if (operand_node == nullptr) {
 		throwCompileMessage(CompileMessage(SL0017E, currentFileName, tokens[current_token_index - 1].line));
 		return nullptr;
@@ -2338,14 +2342,14 @@ Constructor* SlentCompiler::parsePrefixOperator(const std::vector<Token>& tokens
 	return operation;
 }
 
-Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& tokens, int& current_token_index, int min_precedence, int depth) {
+Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& tokens, int& current_token_index, int min_precedence, int depth, bool semicolon) {
 	Constructor* left_expr;
 
 	if (isPrefixOperator(tokens, current_token_index)) {
-		left_expr = parsePrefixOperator(tokens, current_token_index, depth + 1);
+		left_expr = parsePrefixOperator(tokens, current_token_index, depth + 1, semicolon);
 	}
 	else {
-		left_expr = parsePrimary(tokens, current_token_index, depth + 1);
+		left_expr = parsePrimary(tokens, current_token_index, depth + 1, semicolon);
 	}
 
 	if (left_expr == nullptr) {
@@ -2379,7 +2383,7 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 			next_min_precedence = op_precedence + 1;
 		}
 
-		Constructor* right_expr = parseExpressionPrecedence(tokens, current_token_index, next_min_precedence, depth + 1);
+		Constructor* right_expr = parseExpressionPrecedence(tokens, current_token_index, next_min_precedence, depth + 1, semicolon);
 		if (right_expr == nullptr) {
 			throwCompileMessage(CompileMessage(SL0017E, currentFileName, tokens[current_token_index - 1].line));
 			return nullptr;
@@ -2393,7 +2397,7 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 		left_expr = operation;
 	}
 
-	if (depth == 0 && tokens[current_token_index].value != ";") {
+	if (semicolon && depth == 0 && tokens[current_token_index].value != ";") {
 		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[current_token_index - 1].line));
 		return nullptr;
 	}
@@ -2599,6 +2603,7 @@ int SlentCompiler::findNextSemicolon(vector<Token> tokens, int cursor) {
 			return i;
 		}
 	}
+	return -1;
 }
 
 string SlentCompiler::bytecode(Constructor* ast) {
