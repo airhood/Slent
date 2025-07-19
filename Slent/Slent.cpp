@@ -2342,10 +2342,10 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 	Constructor* left_expr;
 
 	if (isPrefixOperator(tokens, current_token_index)) {
-		left_expr = parsePrefixOperator(tokens, current_token_index, depth);
+		left_expr = parsePrefixOperator(tokens, current_token_index, depth + 1);
 	}
 	else {
-		left_expr = parsePrimary(tokens, current_token_index, depth);
+		left_expr = parsePrimary(tokens, current_token_index, depth + 1);
 	}
 
 	if (left_expr == nullptr) {
@@ -2379,7 +2379,7 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 			next_min_precedence = op_precedence + 1;
 		}
 
-		Constructor* right_expr = parseExpressionPrecedence(tokens, current_token_index, next_min_precedence, depth);
+		Constructor* right_expr = parseExpressionPrecedence(tokens, current_token_index, next_min_precedence, depth + 1);
 		if (right_expr == nullptr) {
 			throwCompileMessage(CompileMessage(SL0017E, currentFileName, tokens[current_token_index - 1].line));
 			return nullptr;
@@ -2391,6 +2391,11 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 		operation->addProperty("right", right_expr);
 
 		left_expr = operation;
+	}
+
+	if (depth == 0 && tokens[current_token_index].value != ";") {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[current_token_index - 1].line));
+		return nullptr;
 	}
 
 	return left_expr;
