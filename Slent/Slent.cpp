@@ -749,7 +749,7 @@ int SlentCompiler::t_find_next(vector<Token> tokens, int cursor, vector<string> 
 vector<Token> SlentCompiler::lexer(string code) {
 	vector<Token> tokens;
 
-	regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
+	regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+\+|\-\-|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
 	// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 	smatch match;
 
@@ -769,7 +769,7 @@ vector<Token> SlentCompiler::lexer(string code) {
 			else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
 				tokens.push_back(Token(TokenType::CONSTANT, matched, i));
 			}
-			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
+			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+\+|\-\-|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
 				tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 			}
 			else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|:|;|<|>|\.|\,)"))) {
@@ -2085,7 +2085,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 							continue;
 						}
 
-						int body_start = findBraceClose(tokens, bracket_end, -1);
+						int body_start = bracket_end + 1;
 						body_end = findBraceClose(tokens, bracket_end + 2, 1);
 						if (body_end == -1) {
 							throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
@@ -2108,7 +2108,13 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 						if_->addProperty(body);
 					}
 
-					function_body->addProperty(if_);
+					if (state == ELSE) {
+						temp->addProperty(if_);
+					}
+					else {
+						function_body->addProperty(if_);
+					}
+
 					i = body_end;
 
 					state = IF;
@@ -2138,24 +2144,60 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 
 			if (tokens[i + 1].value == "if") { // else if { }
 				temp->addProperty(else_);
+
+				if (state != IF) {
+					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+				}
+
+				state = ELSE;
+				temp = else_;
+				continue;
 			}
 			else { // else { }
-				if (tokens[i + 1].value != "{") {
-					throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
-					continue;
+				int body_end;
+
+				if (tokens[i + 1].value == "{") {
+					if (!vec_check_index(tokens, i + 2)) {
+						throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i + 1].line));
+						continue;
+					}
+
+					int body_start = i + 1;
+					body_end = findBraceClose(tokens, i + 2, 1);
+					if (body_end == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
+						continue;
+					}
+
+					Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+					body->setName("else_body");
+					else_->addProperty(body);
+				}
+				else {
+					body_end = findNextSemicolon(tokens, i + 1);
+					if (body_end == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
+						continue;
+					}
+
+					Constructor* body = getFunctionBody(tokens, Scope(i + 1, body_end));
+					body->setName("else_body");
+					else_->addProperty(body);
 				}
 
-				int body_end = findBraceClose(tokens, i + 2, 1);
-				if (body_end == -1) {
-
+				if (temp == nullptr) {
+					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
 				}
-			}
+				temp->addProperty(else_);
+				i = body_end;
 
-			if (state == IF) {
+				if (state != IF) {
+					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+				}
 
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+				state = ELSE;
+				temp = else_;
+				continue;
 			}
 		}
 		else if (tokens[i].value == "for") {
@@ -2202,7 +2244,7 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 		
 		int next_semicolon = findNextSemicolon(tokens, i);
 		if (next_semicolon == -1) {
-			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
 			continue;
 		}
 
@@ -2361,7 +2403,8 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 		if (postfix_op_info && postfix_op_info->precedence >= min_precedence) {
 			std::string op_value = tokens[current_token_index].value;
 			current_token_index++;
-			Constructor* operation = new Constructor("unary_operation", op_value);
+			Constructor* operation = new Constructor("unary_operation");
+			operation->addProperty("op_value", op_value);
 			operation->addProperty("operand", left_expr);
 			left_expr = operation;
 			continue;

@@ -4,7 +4,7 @@
 
 namespace Slent {
 
-    const std::string VERSION = "0.0.1";
+    const std::string VERSION = "Slent 0.0.1";
 
     std::string colorString(std::string str, int color);
 
@@ -29,6 +29,7 @@ namespace Slent {
 
     const std::vector<std::string> keywords = {
         "import",
+        "use",
 
         // Access Modifier
         "public",

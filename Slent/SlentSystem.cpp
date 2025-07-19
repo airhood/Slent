@@ -43,6 +43,7 @@ void SlentSystem::Run(int argc, char** argv) {
 
 		if (error) return;
 
+		cout << colorString("Loading files...", YELLOW) << endl << endl;
 		LoadFiles(configFilePath);
 
 		compiler->ConfigureSetting(setting);
@@ -62,7 +63,7 @@ void SlentSystem::Run(int argc, char** argv) {
 
 	if (strcmp(argv[1], "--version") == 0)
 	{
-		cout << "version: " << VERSION << endl;
+		cout << VERSION << endl;
 		return;
 	}
 }
