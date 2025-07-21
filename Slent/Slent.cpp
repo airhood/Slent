@@ -1046,7 +1046,6 @@ Constructor* SlentCompiler::parser(vector<Token> tokens) {
 			current_module_body.erase(current_module_body.end() - 1);
 		}
 		else {
-			cout << tokens[i].value << endl;
 			throwCompileMessage(CompileMessage(SL0035E, currentFileName, tokens[i].line));
 			continue;
 		}
@@ -1533,7 +1532,6 @@ vector<Constructor*> SlentCompiler::getClassVariables(vector<Token>& tokens, Sco
 				continue;
 			}
 			else {
-				cout << tokens[i].value << endl << tokens[i+1].value << endl << tokens[i+2].value << endl;
 				throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
 				i = findNextSemicolon(tokens, i + 2);
 				if (i == -1) break;
