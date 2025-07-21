@@ -6,8 +6,6 @@
 #include <sstream>
 #include <functional>
 #include <fstream>
-#include <variant>
-#include <stack>
 
 #include "Slent.h"
 
@@ -1057,7 +1055,7 @@ Constructor* SlentCompiler::parser(vector<Token> tokens) {
 	return root;
 }
 
-tuple<Constructor*, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope scope, bool includeBody) {
+tuple<Constructor*, bool> SlentCompiler::getFunction(vector<Token>& tokens, Scope scope, bool includeBody) {
 	int i = scope.start;
 	if (tokens[i].value == "func") {
 		if ((i + 1) > scope.end) {
@@ -1199,7 +1197,7 @@ tuple<Constructor*, bool> SlentCompiler::getFunction(vector<Token> tokens, Scope
 	}
 }
 
-tuple<Constructor*, int, bool> SlentCompiler::getClass(vector<Token> tokens, int cursor) {
+tuple<Constructor*, int, bool> SlentCompiler::getClass(vector<Token>& tokens, int cursor) {
 	Constructor* class_define = new Constructor();
 	class_define->setName("class");
 	if (!vec_check_index(tokens, cursor + 1)) {
@@ -1227,7 +1225,7 @@ tuple<Constructor*, int, bool> SlentCompiler::getClass(vector<Token> tokens, int
 	return make_tuple(class_define, brace_close, true);
 }
 
-Constructor* SlentCompiler::getClassMembers(vector<Token> tokens, Scope scope) {
+Constructor* SlentCompiler::getClassMembers(vector<Token>& tokens, Scope scope) {
 	Constructor* classMembers = new Constructor();
 	classMembers->setName("members");
 	vector<Constructor*> class_constructors = getClassConstructors(tokens, scope);
@@ -1246,7 +1244,7 @@ Constructor* SlentCompiler::getClassMembers(vector<Token> tokens, Scope scope) {
 	return classMembers;
 }
 
-vector<Constructor*> SlentCompiler::getClassConstructors(vector<Token> tokens, Scope scope) {
+vector<Constructor*> SlentCompiler::getClassConstructors(vector<Token>& tokens, Scope scope) {
 	vector<Constructor*> class_constructors;
 	for (int i = scope.start; i <= scope.end; i++) {
 		if (tokens[i].value == "construct") {
@@ -1330,7 +1328,7 @@ vector<Constructor*> SlentCompiler::getClassConstructors(vector<Token> tokens, S
 	return class_constructors;
 }
 
-vector<Constructor*> SlentCompiler::getClassVariables(vector<Token> tokens, Scope scope) {
+vector<Constructor*> SlentCompiler::getClassVariables(vector<Token>& tokens, Scope scope) {
 	vector<Constructor*> class_variables;
 	for (int i = scope.start; i <= scope.end; i++) {
 		if ((tokens[i].value == "construct") || (tokens[i].value == "func")) {
@@ -1579,7 +1577,7 @@ vector<Constructor*> SlentCompiler::getClassVariables(vector<Token> tokens, Scop
 	return class_variables;
 }
 
-vector<Constructor*> SlentCompiler::getClassFunctions(vector<Token> tokens, Scope scope, bool includeBody) {
+vector<Constructor*> SlentCompiler::getClassFunctions(vector<Token>& tokens, Scope scope, bool includeBody) {
 	vector<Constructor*> class_functions;
 	for (int i = scope.start; i <= scope.end; i++) {
 		if (tokens[i].value == "dynamic") {
@@ -1642,606 +1640,143 @@ vector<Constructor*> SlentCompiler::getClassFunctions(vector<Token> tokens, Scop
 	return class_functions;
 }
 
-Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
+Constructor* SlentCompiler::getFunctionBody(vector<Token>& tokens, Scope scope)
+{
 	Constructor* function_body = new Constructor();
 	function_body->setName("body");
 	vector<vector<Token>> split = split_token(tokens, scope, ";");
-
-
-	enum State {
-		NONE,
-		IF,
-		ELSE
-	};
 
 	State state = NONE;
 	Constructor* temp = nullptr;
 
 	for (int i = scope.start; i <= scope.end; i++) {
-
 		if (tokens[i].value == ";") {
 			continue;
 		}
 
 		if (tokens[i].value == "val") { // declear value variable
-			Constructor* constant_variable_declear = new Constructor();
-			constant_variable_declear->setName("variable_decl_l");
-			constant_variable_declear->addProperty("isVal", "1");
-
-			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
-				continue;
+			Constructor* result = parseVal(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-
-			// get type
-			if ((tokens[i + 1].type != TokenType::KEYWORD) && (tokens[i + 1].type != TokenType::IDENTIFIER)) {
-				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
-				continue;
-			}
-
-			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
-				continue;
-			}
-
-			int k;
-
-			// get name
-			if (tokens[i + 2].type == TokenType::IDENTIFIER) {
-				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-
-				int reference_offset = 0;
-
-				if (tokens[i + 3].value == "&") {
-					constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
-					reference_offset = 1;
-				}
-				else {
-					constant_variable_declear->addProperty("type", tokens[i + 1].value);
-				}
-
-				constant_variable_declear->addProperty("nullable", "0");
-				constant_variable_declear->addProperty("name", tokens[i + 2].value);
-
-				if (!vec_check_index(tokens, i + 3 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2 + reference_offset].line));
-					continue;
-				}
-				// variable access_modifier is not allowed when declearing local variable
-				if (tokens[i + 3 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 3 + reference_offset].line));
-					continue;
-				}
-
-				k = 2 + reference_offset;
-			}
-			else if (tokens[i + 2].value == "?") {
-				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-
-				int reference_offset = 0;
-
-				if (tokens[i + 3].value == "&") {
-					constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
-					reference_offset = 1;
-				}
-				else {
-					constant_variable_declear->addProperty("type", tokens[i + 1].value);
-				}
-
-				if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3 + reference_offset].line));
-					continue;
-				}
-
-				constant_variable_declear->addProperty("nullable", "1");
-				constant_variable_declear->addProperty("name", tokens[i + 3 + reference_offset].value);
-
-				if (!vec_check_index(tokens, i + 4 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3 + reference_offset].line));
-					continue;
-				}
-				// variable access_modifier is not allowed when declearing local variable
-				if (tokens[i + 4 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4 + reference_offset].line));
-					continue;
-				}
-
-				k = 3 + reference_offset;
-			}
-			else if (tokens[i + 2].value == "&") {
-				constant_variable_declear->addProperty("nullable", "0");
-				constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
-
-				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-
-				if (tokens[i + 3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3].line));
-					continue;
-				}
-				constant_variable_declear->addProperty("name", tokens[i + 3].value);
-
-				if (!vec_check_index(tokens, i + 4)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-				// variable access_modifier is not allowed when declearing local variable
-				if (tokens[i + 4].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4].line));
-					continue;
-				}
-
-				k = 3;
-			}
-			else if (tokens[i + 2].value == "=") {
-				constant_variable_declear->addProperty("type", "auto");
-				constant_variable_declear->addProperty("nullable", "0");
-				constant_variable_declear->addProperty("name", tokens[i + 1].value);
-
-				k = 1;
-			}
-			else if (tokens[i + 2].value == ";") {
-				constant_variable_declear->addProperty("nullable", "0");
-				constant_variable_declear->addProperty("name", tokens[i + 1].value);
-				throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
-				throwCompileMessage(CompileMessage(SL0025E, currentFileName, tokens[i + 2].line));
-				continue;
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
-				continue;
-			}
-
-			if (!vec_check_index(tokens, i + k + 1)) {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k].line));
-				continue;
-			}
-
-			if (tokens[i + k + 1].value == "=") {
-				if (!vec_check_index(tokens, i + k + 2)) {
-					throwCompileMessage(CompileMessage(SL0045E, currentFileName, tokens[i + k + 1].line));
-					continue;
-				}
-
-				int next_semicolon = findNextSemicolon(tokens, i + k + 2);
-				if (next_semicolon == -1) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
-					next_semicolon = tokens.size() - 1;
-				}
-
-				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0, true);
-				if (!get<bool>(result)) continue;
-				Constructor* variable_init = get<Constructor*>(result);
-				variable_init->setName("variable_init");
-				constant_variable_declear->addProperty(variable_init);
-				function_body->addProperty(constant_variable_declear);
-				continue;
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k + 1].line));
-				continue;
-			}
+			continue;
 		}
 		else if (tokens[i].value == "var") { // declear variable
-			Constructor* variable_declear = new Constructor();
-			variable_declear->setName("variable_decl_l");
-			variable_declear->addProperty("isVal", "0");
-
-			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
-				break;
+			Constructor* result = parseVar(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-
-			// get type
-			if ((tokens[i + 1].type != TokenType::KEYWORD) && (tokens[i + 1].type != TokenType::IDENTIFIER)) {
-				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i].line));
-				i = findNextSemicolon(tokens, i + 1);
-				if (i == -1) break;
-				continue;
-			}
-
-			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
-				break;
-			}
-
-			int k;
-
-			// get name
-			if (tokens[i + 2].type == TokenType::IDENTIFIER) {
-				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
-					break;
-				}
-
-				int reference_offset = 0;
-
-				if (tokens[i + 3].value == "&") {
-					variable_declear->addProperty("type", tokens[i + 1].value + "&");
-					reference_offset = 1;
-				}
-				else {
-					variable_declear->addProperty("type", tokens[i + 1].value);
-				}
-
-				variable_declear->addProperty("nullable", "0");
-				variable_declear->addProperty("name", tokens[i + 2].value);
-
-				if (!vec_check_index(tokens, i + 3 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2 + reference_offset].line));
-					break;
-				}
-				// variable access_modifier is not allowed when declearing local variable
-				if (tokens[i + 3 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 3 + reference_offset].line));
-					i = findNextSemicolon(tokens, i + 3 + reference_offset);
-					if (i == -1) break;
-					continue;
-				}
-
-				k = 2 + reference_offset;
-			}
-			else if (tokens[i + 2].value == "?") {
-				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
-					break;
-				}
-
-				int reference_offset = 0;
-
-				if (tokens[i + 3].value == "&") {
-					variable_declear->addProperty("type", tokens[i + 1].value + "&");
-					reference_offset = 1;
-				}
-				else {
-					variable_declear->addProperty("type", tokens[i + 1].value);
-				}
-
-				if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3 + reference_offset].line));
-					i = findNextSemicolon(tokens, i + 3 + reference_offset);
-					if (i == -1) break;
-					continue;
-				}
-
-				variable_declear->addProperty("nullable", "1");
-				variable_declear->addProperty("name", tokens[i + 3 + reference_offset].value);
-
-				if (!vec_check_index(tokens, i + 4 + reference_offset)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3 + reference_offset].line));
-					break;
-				}
-				// variable access_modifier is not allowed when declearing local variable
-				if (tokens[i + 4 + reference_offset].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4 + reference_offset].line));
-					i = findNextSemicolon(tokens, i + 4 + reference_offset);
-					if (i == -1) break;
-					continue;
-				}
-
-				k = 3 + reference_offset;
-			}
-			else if (tokens[i + 2].value == "&") {
-				variable_declear->addProperty("nullable", "0");
-				variable_declear->addProperty("type", tokens[i + 1].value + "&");
-
-				if (!vec_check_index(tokens, i + 3)) {
-					throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
-					break;
-				}
-
-				if (tokens[i + 3].type != TokenType::IDENTIFIER) {
-					throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
-					i = findNextSemicolon(tokens, i + 3);
-					if (i == -1) break;
-					continue;
-				}
-				variable_declear->addProperty("name", tokens[i + 3].value);
-
-				if (!vec_check_index(tokens, i + 4)) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3].line));
-					break;
-				}
-				// variable access_modifier is not allowed when declearing local variable
-				if (tokens[i + 4].value == ":") {
-					throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4].line));
-					i = findNextSemicolon(tokens, i + 4);
-					if (i == -1) break;
-					continue;
-				}
-
-				k = 3;
-			}
-			else if (tokens[i + 2].value == "=") {
-				variable_declear->addProperty("type", "auto");
-				variable_declear->addProperty("nullable", "0");
-				variable_declear->addProperty("name", tokens[i + 1].value);
-
-				k = 1;
-			}
-			else if (tokens[i + 2].value == ";") {
-				variable_declear->addProperty("name", tokens[i + 1].value);
-				throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
-				i = i + 2;
-				continue;
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
-				i = findNextSemicolon(tokens, i + 2);
-				if (i == -1) break;
-				continue;
-			}
-
-			if (!vec_check_index(tokens, i + k + 1)) {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k].line));
-				break;
-			}
-
-			if (tokens[i + k + 1].value == ";") {
-				Constructor* variable_init = new Constructor();
-				variable_init->setName("variable_init");
-				variable_declear->addProperty(variable_init);
-				function_body->addProperty(variable_declear);
-				i = i + k + 1;
-				continue;
-			}
-			else if (tokens[i + k + 1].value == "=") {
-				int next_semicolon = findNextSemicolon(tokens, i + k + 1);
-				if (next_semicolon == -1) {
-					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
-					next_semicolon = tokens.size() - 1;
-				}
-
-				auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0, true);
-				if (!get<bool>(result)) continue;
-				Constructor* variable_init = get<Constructor*>(result);
-				variable_init->setName("variable_init");
-				variable_declear->addProperty(variable_init);
-				function_body->addProperty(variable_declear);
-				i = next_semicolon;
-				continue;
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k + 1].line));
-				continue;
-			}
-		}
-		else if (tokens[i].value == "return") {
-			if (!vec_check_index(tokens, i + 1)) {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
-				continue;
-			}
-
-			Constructor* return_ = new Constructor();
-			return_->setName("return");
-
-			if (tokens[i + 1].value == ";") {
-				return_->addProperty("value", "");
-				function_body->addProperty(return_);
-				continue;
-			}
-
-			int next_semicolon = findNextSemicolon(tokens, i + 1);
-			if (next_semicolon == -1) {
-				throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
-				next_semicolon = tokens.size() - 1;
-			}
-
-			auto result = getExpression(tokens, Scope(i + 1, next_semicolon), 0, true);
-			if (!get<bool>(result)) continue;
-			Constructor* return_val_expression = get<Constructor*>(result);
-			return_->addProperty(return_val_expression);
-			function_body->addProperty(return_);
-			i = next_semicolon;
 			continue;
 		}
 		else if (tokens[i].value == "if") {
-			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i].line));
-				continue;
+			Constructor* result = parseIf(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-
-			Constructor* if_ = new Constructor();
-			if_->setName("if");
-
-			if (tokens[i + 1].value == "(") {
-				if (tokens[i + 2].value == ")") {
-					throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-				else {
-					int bracket_end = findBracketClose(tokens, i + 2, 1);
-					if (bracket_end == -1) {
-						throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
-						continue;
-					}
-
-					tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0, false);
-					if (!get<bool>(condition_expression_result)) {
-						i = bracket_end;
-					}
-					Constructor* condition_expression = get<Constructor*>(condition_expression_result);
-					condition_expression->setName("condition");
-					if_->addProperty(condition_expression);
-
-					if (!vec_check_index(tokens, bracket_end + 1)) {
-						throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
-						continue;
-					}
-
-					int body_end;
-
-					if (tokens[bracket_end + 1].value == "{") {
-						if (!vec_check_index(tokens, bracket_end + 2)) {
-							throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
-							continue;
-						}
-
-						int body_start = bracket_end + 1;
-						body_end = findBraceClose(tokens, bracket_end + 2, 1);
-						if (body_end == -1) {
-							throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
-							continue;
-						}
-
-						Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
-						body->setName("then_body");
-						if_->addProperty(body);
-					}
-					else {
-						body_end = findNextSemicolon(tokens, bracket_end + 1);
-						if (body_end == -1) {
-							throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
-							continue;
-						}
-
-						Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end));
-						body->setName("then_body");
-						if_->addProperty(body);
-					}
-
-					if (state == ELSE) {
-						temp->addProperty(if_);
-					}
-					else {
-						function_body->addProperty(if_);
-					}
-
-					i = body_end;
-
-					state = IF;
-					temp = if_;
-					continue;
-				}
-			}
-			else {
-				throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
-				continue;
-			}
+			continue;
 		}
 		else if (tokens[i].value == "else") {
-			Constructor* else_ = new Constructor();
-			else_->setName("else_body");
-			if (!vec_check_index(tokens, i + 1)) {
-				if (state != IF) {
-					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
-					break;
-				}
-
-				if (temp != nullptr) {
-					temp->addProperty(else_);
-				}
-				break;
+			Constructor* result = parseElse(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-
-			if (tokens[i + 1].value == "if") { // else if { }
-				temp->addProperty(else_);
-
-				if (state != IF) {
-					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
-				}
-
-				state = ELSE;
-				temp = else_;
-				continue;
+			continue;
+		}
+		else if (tokens[i].value == "switch") {
+			Constructor* result = parseSwitch(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-			else { // else { }
-				int body_end;
-
-				if (tokens[i + 1].value == "{") {
-					if (!vec_check_index(tokens, i + 2)) {
-						throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i + 1].line));
-						continue;
-					}
-
-					int body_start = i + 1;
-					body_end = findBraceClose(tokens, i + 2, 1);
-					if (body_end == -1) {
-						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
-						continue;
-					}
-
-					Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
-					body->setName("else_body");
-					else_->addProperty(body);
-				}
-				else {
-					body_end = findNextSemicolon(tokens, i + 1);
-					if (body_end == -1) {
-						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
-						continue;
-					}
-
-					Constructor* body = getFunctionBody(tokens, Scope(i + 1, body_end));
-					body->setName("else_body");
-					else_->addProperty(body);
-				}
-
-				if (temp == nullptr) {
-					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
-				}
-				temp->addProperty(else_);
-				i = body_end;
-
-				if (state != IF) {
-					throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
-				}
-
-				state = ELSE;
-				temp = else_;
-				continue;
+			continue;
+		}
+		else if (tokens[i].value == "loop") {
+			Constructor* result = parseLoop(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
+			continue;
 		}
 		else if (tokens[i].value == "for") {
-			if (!vec_check_index(tokens, i + 2)) {
-				throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i].line));
-				continue;
+			Constructor* result = parseLoop(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-
-			Constructor* for_ = new Constructor();
-			for_->setName("for");
-
-			if (tokens[i + 1].value == "(") {
-				if (tokens[i + 2].value == ")") {
-					throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
-					continue;
-				}
-				else {
-					int bracket_end = findBracketClose(tokens, i + 2, 1);
-					if (bracket_end == -1) {
-						throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
-						continue;
-					}
-
-					vector<vector<Token>> condition_split = split_token(tokens, Scope(i + 2, bracket_end - 1), ";");
-					if (condition_split.size() < 3) {
-						throwCompileMessage(CompileMessage(SL0027E, currentFileName, condition_split[2].back().line));
-						continue;
-					}
-					else if (condition_split.size() > 3) {
-						throwCompileMessage(CompileMessage(SL0018E, currentFileName, condition_split.back().back().line));
-						continue;
-					}
-
-
-				}
+			continue;
+		}
+		else if (tokens[i].value == "while") {
+			Constructor* result = parseWhile(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
-			else {
-				throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
-				continue;
+			continue;
+		}
+		else if (tokens[i].value == "do") {
+			Constructor* result = parseDo(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
 			}
+			continue;
+		}
+		else if (tokens[i].value == "foreach") {
+			Constructor* result = parseForeach(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "try") {
+			Constructor* result = parseTry(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "catch") {
+			Constructor* result = parseCatch(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "finally") {
+			Constructor* result = parseFinally(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "break") {
+			Constructor* result = parseBreak(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "continue") {
+			Constructor* result = parseContinue(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "return") {
+			Constructor* result = parseReturn(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
+		}
+		else if (tokens[i].value == "goto") {
+			Constructor* result = parseGoto(tokens, i, state, temp);
+			if (result != nullptr) {
+				function_body->addProperty(result);
+			}
+			continue;
 		}
 
 		state = NONE;
-		
+		temp = nullptr;
+
 		int next_semicolon = findNextSemicolon(tokens, i);
 		if (next_semicolon == -1) {
 			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
@@ -2257,6 +1792,1191 @@ Constructor* SlentCompiler::getFunctionBody(vector<Token> tokens, Scope scope) {
 	}
 
 	return function_body;
+}
+
+Constructor* SlentCompiler::parseVal(vector<Token>&tokens, int& i, State& state, Constructor*& temp) {
+	Constructor* constant_variable_declear = new Constructor();
+	constant_variable_declear->setName("variable_decl_l");
+	constant_variable_declear->addProperty("isVal", "1");
+
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	// get type
+	if ((tokens[i + 1].type != TokenType::KEYWORD) && (tokens[i + 1].type != TokenType::IDENTIFIER)) {
+		throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (!vec_check_index(tokens, i + 2)) {
+		throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	int k;
+
+	// get name
+	if (tokens[i + 2].type == TokenType::IDENTIFIER) {
+		if (!vec_check_index(tokens, i + 3)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		int reference_offset = 0;
+
+		if (tokens[i + 3].value == "&") {
+			constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
+			reference_offset = 1;
+		}
+		else {
+			constant_variable_declear->addProperty("type", tokens[i + 1].value);
+		}
+
+		constant_variable_declear->addProperty("nullable", "0");
+		constant_variable_declear->addProperty("name", tokens[i + 2].value);
+
+		if (!vec_check_index(tokens, i + 3 + reference_offset)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2 + reference_offset].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		// variable access_modifier is not allowed when declearing local variable
+		if (tokens[i + 3 + reference_offset].value == ":") {
+			throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 3 + reference_offset].line));
+			i = i + 3 + reference_offset;
+			return nullptr;
+		}
+
+		k = 2 + reference_offset;
+	}
+	else if (tokens[i + 2].value == "?") {
+		if (!vec_check_index(tokens, i + 3)) {
+			throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		int reference_offset = 0;
+
+		if (tokens[i + 3].value == "&") {
+			constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
+			reference_offset = 1;
+		}
+		else {
+			constant_variable_declear->addProperty("type", tokens[i + 1].value);
+		}
+
+		if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
+			throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3 + reference_offset].line));
+			i = i + 3 + reference_offset;
+			return nullptr;
+		}
+
+		constant_variable_declear->addProperty("nullable", "1");
+		constant_variable_declear->addProperty("name", tokens[i + 3 + reference_offset].value);
+
+		if (!vec_check_index(tokens, i + 4 + reference_offset)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3 + reference_offset].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		// variable access_modifier is not allowed when declearing local variable
+		if (tokens[i + 4 + reference_offset].value == ":") {
+			throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4 + reference_offset].line));
+			i = i + 4 + reference_offset;
+			return nullptr;
+		}
+
+		k = 3 + reference_offset;
+	}
+	else if (tokens[i + 2].value == "&") {
+		constant_variable_declear->addProperty("nullable", "0");
+		constant_variable_declear->addProperty("type", tokens[i + 1].value + "&");
+
+		if (!vec_check_index(tokens, i + 3)) {
+			throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		if (tokens[i + 3].type != TokenType::IDENTIFIER) {
+			throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3].line));
+			i = i + 3;
+			return nullptr;
+		}
+		constant_variable_declear->addProperty("name", tokens[i + 3].value);
+
+		if (!vec_check_index(tokens, i + 4)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		// variable access_modifier is not allowed when declearing local variable
+		if (tokens[i + 4].value == ":") {
+			throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4].line));
+			i = i + 4;
+			return nullptr;
+		}
+
+		k = 3;
+	}
+	else if (tokens[i + 2].value == "=") {
+		constant_variable_declear->addProperty("type", "auto");
+		constant_variable_declear->addProperty("nullable", "0");
+		constant_variable_declear->addProperty("name", tokens[i + 1].value);
+
+		k = 1;
+	}
+	else if (tokens[i + 2].value == ";") {
+		constant_variable_declear->addProperty("nullable", "0");
+		constant_variable_declear->addProperty("name", tokens[i + 1].value);
+		throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
+		throwCompileMessage(CompileMessage(SL0025E, currentFileName, tokens[i + 2].line));
+		i = i + 2;
+		return nullptr;
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
+		i = i + 2;
+		return nullptr;
+	}
+
+	if (!vec_check_index(tokens, i + k + 1)) {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + k + 1].value == "=") {
+		if (!vec_check_index(tokens, i + k + 2)) {
+			throwCompileMessage(CompileMessage(SL0045E, currentFileName, tokens[i + k + 1].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		int next_semicolon = findNextSemicolon(tokens, i + k + 2);
+		if (next_semicolon == -1) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+			next_semicolon = tokens.size() - 1;
+		}
+
+		auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0, true);
+		if (!get<bool>(result)) {
+			return nullptr;
+		}
+		Constructor* variable_init = get<Constructor*>(result);
+		variable_init->setName("variable_init");
+		constant_variable_declear->addProperty(variable_init);
+
+		state = NONE;
+		temp = nullptr;
+
+		return constant_variable_declear;
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k + 1].line));
+		i = i + k + 1;
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseVar(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	Constructor* variable_declear = new Constructor();
+	variable_declear->setName("variable_decl_l");
+	variable_declear->addProperty("isVal", "0");
+
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	// get type
+	if ((tokens[i + 1].type != TokenType::KEYWORD) && (tokens[i + 1].type != TokenType::IDENTIFIER)) {
+		throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i].line));
+		i = findNextSemicolon(tokens, i + 1);
+		if (i == -1) {
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		i = i + 1;
+		return nullptr;
+	}
+
+	if (!vec_check_index(tokens, i + 2)) {
+		throwCompileMessage(CompileMessage(SL0012E, currentFileName, tokens[i + 1].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	int k;
+
+	// get name
+	if (tokens[i + 2].type == TokenType::IDENTIFIER) {
+		if (!vec_check_index(tokens, i + 3)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		int reference_offset = 0;
+
+		if (tokens[i + 3].value == "&") {
+			variable_declear->addProperty("type", tokens[i + 1].value + "&");
+			reference_offset = 1;
+		}
+		else {
+			variable_declear->addProperty("type", tokens[i + 1].value);
+		}
+
+		variable_declear->addProperty("nullable", "0");
+		variable_declear->addProperty("name", tokens[i + 2].value);
+
+		if (!vec_check_index(tokens, i + 3 + reference_offset)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 2 + reference_offset].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		// variable access_modifier is not allowed when declearing local variable
+		if (tokens[i + 3 + reference_offset].value == ":") {
+			throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 3 + reference_offset].line));
+			i = findNextSemicolon(tokens, i + 3 + reference_offset);
+			if (i == -1) {
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+			i = i + 3 + reference_offset;
+			return nullptr;
+		}
+
+		k = 2 + reference_offset;
+	}
+	else if (tokens[i + 2].value == "?") {
+		if (!vec_check_index(tokens, i + 3)) {
+			throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		int reference_offset = 0;
+
+		if (tokens[i + 3].value == "&") {
+			variable_declear->addProperty("type", tokens[i + 1].value + "&");
+			reference_offset = 1;
+		}
+		else {
+			variable_declear->addProperty("type", tokens[i + 1].value);
+		}
+
+		if (tokens[i + 3 + reference_offset].type != TokenType::IDENTIFIER) {
+			throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 3 + reference_offset].line));
+			i = findNextSemicolon(tokens, i + 3 + reference_offset);
+			if (i == -1) {
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+			i = i + 3 + reference_offset;
+			return nullptr;
+		}
+
+		variable_declear->addProperty("nullable", "1");
+		variable_declear->addProperty("name", tokens[i + 3 + reference_offset].value);
+
+		if (!vec_check_index(tokens, i + 4 + reference_offset)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3 + reference_offset].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		// variable access_modifier is not allowed when declearing local variable
+		if (tokens[i + 4 + reference_offset].value == ":") {
+			throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4 + reference_offset].line));
+			i = findNextSemicolon(tokens, i + 4 + reference_offset);
+			if (i == -1) {
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+			i = i + 4 + reference_offset;
+			return nullptr;
+		}
+
+		k = 3 + reference_offset;
+	}
+	else if (tokens[i + 2].value == "&") {
+		variable_declear->addProperty("nullable", "0");
+		variable_declear->addProperty("type", tokens[i + 1].value + "&");
+
+		if (!vec_check_index(tokens, i + 3)) {
+			throwCompileMessage(CompileMessage(SL0016E, currentFileName, tokens[i + 2].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		if (tokens[i + 3].type != TokenType::IDENTIFIER) {
+			throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[3].line));
+			i = findNextSemicolon(tokens, i + 3);
+			if (i == -1) {
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+			i = i + 3;
+			return nullptr;
+		}
+		variable_declear->addProperty("name", tokens[i + 3].value);
+
+		if (!vec_check_index(tokens, i + 4)) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + 3].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		// variable access_modifier is not allowed when declearing local variable
+		if (tokens[i + 4].value == ":") {
+			throwCompileMessage(CompileMessage(SL0015E, currentFileName, tokens[i + 4].line));
+			i = findNextSemicolon(tokens, i + 4);
+			if (i == -1) {
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+			i = i + 4;
+			return nullptr;
+		}
+
+		k = 3;
+	}
+	else if (tokens[i + 2].value == "=") {
+		variable_declear->addProperty("type", "auto");
+		variable_declear->addProperty("nullable", "0");
+		variable_declear->addProperty("name", tokens[i + 1].value);
+
+		k = 1;
+	}
+	else if (tokens[i + 2].value == ";") {
+		variable_declear->addProperty("name", tokens[i + 1].value);
+		throwCompileMessage(CompileMessage(SL0034E, currentFileName, tokens[i + 2].line));
+		i = i + 2;
+		return nullptr;
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0013E, currentFileName, tokens[i + 2].line));
+		i = findNextSemicolon(tokens, i + 2);
+		if (i == -1) {
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+		i = i + 2;
+		return nullptr;
+	}
+
+	if (!vec_check_index(tokens, i + k + 1)) {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + k + 1].value == ";") {
+		Constructor* variable_init = new Constructor();
+		variable_init->setName("variable_init");
+		variable_declear->addProperty(variable_init);
+		i = i + k + 1;
+
+		state = NONE;
+		temp = nullptr;
+
+		return variable_declear;
+	}
+	else if (tokens[i + k + 1].value == "=") {
+		int next_semicolon = findNextSemicolon(tokens, i + k + 1);
+		if (next_semicolon == -1) {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+			next_semicolon = tokens.size() - 1;
+		}
+
+		auto result = getExpression(tokens, Scope(i + k + 2, next_semicolon), 0, true);
+		if (!get<bool>(result)) {
+			i = i + k + 1;
+			return nullptr;
+		}
+		Constructor* variable_init = get<Constructor*>(result);
+		variable_init->setName("variable_init");
+		variable_declear->addProperty(variable_init);
+		i = next_semicolon;
+		return variable_declear;
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i + k + 1].line));
+		i = i + k;
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseIf(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 2)) {
+		throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	Constructor* if_ = new Constructor();
+	if_->setName("if");
+
+	if (tokens[i + 1].value == "(") {
+		if (tokens[i + 2].value == ")") {
+			throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+			i = i + 2;
+			return nullptr;
+		}
+		else {
+			int bracket_end = findBracketClose(tokens, i + 2, 1);
+			if (bracket_end == -1) {
+				throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
+				i = i + 1;
+				return nullptr;
+			}
+
+			tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0, false);
+			if (!get<bool>(condition_expression_result)) {
+				i = bracket_end;
+			}
+			Constructor* condition_expression = get<Constructor*>(condition_expression_result);
+			condition_expression->setName("condition");
+			if_->addProperty(condition_expression);
+
+			if (!vec_check_index(tokens, bracket_end + 1)) {
+				throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+
+			int body_end;
+
+			if (tokens[bracket_end + 1].value == "{") {
+				if (!vec_check_index(tokens, bracket_end + 2)) {
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+					i = tokens.size(); // break;
+					return nullptr;
+				}
+
+				int body_start = bracket_end + 1;
+				body_end = findBraceClose(tokens, bracket_end + 2, 1);
+				if (body_end == -1) {
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+					i = body_start;
+					return nullptr;
+				}
+
+				Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+				body->setName("then_body");
+				if_->addProperty(body);
+			}
+			else {
+				body_end = findNextSemicolon(tokens, bracket_end + 1);
+				if (body_end == -1) {
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+					i = bracket_end;
+					return nullptr;
+				}
+
+				Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end));
+				body->setName("then_body");
+				if_->addProperty(body);
+			}
+
+			if (state == ELSE) {
+				temp->addProperty(if_);
+				i = body_end;
+
+				state = IF;
+				temp = if_;
+
+				return nullptr;
+			}
+			else {
+				i = body_end;
+
+				state = IF;
+				temp = if_;
+
+				return if_;
+			}
+		}
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+		i = i + 1;
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseElse(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	Constructor* else_ = new Constructor();
+	else_->setName("else_body");
+	if (!vec_check_index(tokens, i + 1)) {
+		if (state != IF) {
+			throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		if (temp != nullptr) {
+			temp->addProperty(else_);
+		}
+
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value == "if") { // else if { }
+		temp->addProperty(else_);
+
+		if (state != IF) {
+			throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+		}
+
+		state = ELSE;
+		temp = else_;
+		
+		return nullptr;
+	}
+	else { // else { }
+		int body_end;
+
+		if (tokens[i + 1].value == "{") {
+			if (!vec_check_index(tokens, i + 2)) {
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+
+			int body_start = i + 1;
+			body_end = findBraceClose(tokens, i + 2, 1);
+			if (body_end == -1) {
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
+				i = i + 1;
+				return nullptr;
+			}
+
+			Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+			body->setName("else_body");
+			else_->addProperty(body);
+		}
+		else {
+			body_end = findNextSemicolon(tokens, i + 1);
+			if (body_end == -1) {
+				throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[i + 1].line));
+				return nullptr;
+			}
+
+			Constructor* body = getFunctionBody(tokens, Scope(i + 1, body_end));
+			body->setName("else_body");
+			else_->addProperty(body);
+		}
+
+		if (temp == nullptr) {
+			throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+			i = body_end;
+			state = ELSE;
+		}
+
+		temp->addProperty(else_);
+		i = body_end;
+
+		if (state != IF) {
+			throwCompileMessage(CompileMessage(SL0046E, currentFileName, tokens[i].line));
+		}
+
+		state = ELSE;
+		temp = else_;
+
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseSwitch(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 2)) {
+		throwCompileMessage(CompileMessage(SL0051E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	Constructor* switch_ = new Constructor();
+	switch_->setName("switch");
+
+	if (tokens[i + 1].value == "(") {
+		if (tokens[i + 2].value == ")") {
+			throwCompileMessage(CompileMessage(SL0051E, currentFileName, tokens[i + 2].line));
+			i = i + 2;
+			return nullptr;
+		}
+		else {
+			int bracket_end = findBracketClose(tokens, i + 2, 1);
+			if (bracket_end == -1) {
+				throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
+				i = i + 1;
+				return nullptr;
+			}
+
+			tuple<Constructor*, bool> target_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0, false);
+			if (!get<bool>(target_expression_result)) {
+				i = bracket_end;
+			}
+			Constructor* target_expression = get<Constructor*>(target_expression_result);
+			target_expression->setName("target");
+			switch_->addProperty(target_expression);
+
+			if (!vec_check_index(tokens, bracket_end + 1)) {
+				throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end].line));
+				i = tokens.size(); // break;
+				return nullptr;
+			}
+
+			int body_end;
+
+			if (tokens[bracket_end + 1].value == "{") {
+				if (!vec_check_index(tokens, bracket_end + 2)) {
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+					i = tokens.size(); // break;
+					return nullptr;
+				}
+
+				int body_start = bracket_end + 1;
+				body_end = findBraceClose(tokens, bracket_end + 2, 1);
+				if (body_end == -1) {
+					throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+					i = body_start;
+					return nullptr;
+				}
+
+				tuple<Constructor*, bool> body_result = getSwitchStatementBody(tokens, Scope(body_start + 1, body_end - 1));
+				if (!get<bool>(body_result)) {
+
+				}
+				Constructor* body = get<Constructor*>(body_result);
+				body->setName("body");
+				switch_->addProperty(body);
+			}
+			else {
+				if (!vec_check_index(tokens, bracket_end + 2)) {
+					throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
+					i = tokens.size(); // break;
+					return nullptr;
+				}
+			}
+
+			i = body_end;
+
+			state = NONE;
+			temp = nullptr;
+
+			return switch_;
+		}
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0051E, currentFileName, tokens[i + 2].line));
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseLoop(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value != "{") {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		return nullptr;
+	}
+
+	Constructor* loop = new Constructor();
+	loop->setName("loop");
+
+	int body_start = i + 1;
+	int body_end = findBraceClose(tokens, body_start + 1, 1);
+
+	Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+	body->setName("body");
+	loop->addProperty(body);
+
+	i = body_end;
+
+	state = NONE;
+	temp = nullptr;
+
+	return loop;
+}
+
+Constructor* SlentCompiler::parseFor(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 2)) {
+		throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	Constructor* for_ = new Constructor();
+	for_->setName("for");
+
+	if (tokens[i + 1].value == "(") {
+		if (tokens[i + 2].value == ")") {
+			throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+			i = i + 1;
+			return nullptr;
+		}
+		else {
+			int bracket_end = findBracketClose(tokens, i + 2, 1);
+			if (bracket_end == -1) {
+				throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
+				i = i + 1;
+				return nullptr;
+			}
+
+			vector<vector<Token>> condition_split = split_token(tokens, Scope(i + 2, bracket_end - 1), ";");
+			if (condition_split.size() < 3) {
+				throwCompileMessage(CompileMessage(SL0027E, currentFileName, condition_split[2].back().line));
+				i = i + 1;
+				return nullptr;
+			}
+			else if (condition_split.size() > 3) {
+				throwCompileMessage(CompileMessage(SL0018E, currentFileName, condition_split.back().back().line));
+				i = i + 1;
+				return nullptr;
+			}
+
+
+		}
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseWhile(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 2)) {
+		throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i].line));
+		i = tokens.size();
+		return nullptr;
+	}
+
+	Constructor* while_ = new Constructor();
+	while_->setName("while");
+
+	if (tokens[i + 1].value == "(") {
+		if (tokens[i + 2].value == ")") {
+			throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+			i = i + 1;
+			return nullptr;
+		}
+		else {
+			int bracket_end = findBracketClose(tokens, i + 2, 1);
+			if (bracket_end == -1) {
+				throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
+				i = i + 1;
+				return nullptr;
+			}
+
+			tuple<Constructor*, bool> condition_expression_result = getExpression(tokens, Scope(i + 2, bracket_end), 0, false);
+			if (!get<bool>(condition_expression_result)) {
+				i = bracket_end;
+			}
+			Constructor* condition_expression = get<Constructor*>(condition_expression_result);
+			condition_expression->setName("condition");
+			while_->addProperty(condition_expression);
+
+			if (state == DO) {
+				if (!vec_check_index(tokens, bracket_end + 1)) {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[bracket_end].line));
+					i = tokens.size(); // break;
+					return nullptr;
+				}
+
+				if (tokens[bracket_end + 1].value != ";") {
+					throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[bracket_end].line));
+					i = bracket_end;
+					return nullptr;
+				}
+
+				temp->addProperty(while_);
+
+				i = bracket_end + 1;
+
+				state = NONE;
+				temp = nullptr;
+
+				return nullptr;
+			}
+			else {
+				if (!vec_check_index(tokens, bracket_end + 1)) {
+					throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end].line));
+					i = tokens.size(); // break;
+					return nullptr;
+				}
+
+				int body_end;
+
+				if (tokens[bracket_end + 1].value == "{") {
+					if (!vec_check_index(tokens, bracket_end + 2)) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+						i = tokens.size(); // break;
+						return nullptr;
+					}
+
+					int body_start = bracket_end + 1;
+					body_end = findBraceClose(tokens, bracket_end + 2, 1);
+					if (body_end == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+						i = bracket_end;
+						return nullptr;
+					}
+
+					Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+					body->setName("body");
+					while_->addProperty(body);
+				}
+				else {
+					body_end = findNextSemicolon(tokens, bracket_end + 1);
+					if (body_end == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+						i = bracket_end;
+						return nullptr;
+					}
+
+					Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end));
+					body->setName("body");
+					while_->addProperty(body);
+				}
+
+				i = body_end;
+
+				state = NONE;
+				temp = nullptr;
+
+				return while_;
+			}
+		}
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseDo(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value != "{") {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		return nullptr;
+	}
+
+	Constructor* do_ = new Constructor();
+	do_->setName("do");
+
+	int body_start = i + 1;
+	int body_end = findBraceClose(tokens, body_start + 1, 1);
+
+	Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+	body->setName("body");
+	do_->addProperty(body);
+
+	i = body_end;
+
+	state = DO;
+	temp = do_;
+
+	return do_;
+}
+
+Constructor* SlentCompiler::parseForeach(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	return nullptr;
+}
+
+Constructor* SlentCompiler::parseTry(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value != "{") {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		return nullptr;
+	}
+
+	Constructor* try_ = new Constructor();
+	try_->setName("try");
+
+	int body_start = i + 1;
+	int body_end = findBraceClose(tokens, body_start + 1, 1);
+
+	Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+	body->setName("body");
+	try_->addProperty(body);
+
+	i = body_end;
+
+	temp = try_;
+	state = TRY;
+
+	return try_;
+}
+
+Constructor* SlentCompiler::parseCatch(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (state == TRY || state == CATCH) {
+		if (!vec_check_index(tokens, i + 2)) {
+			throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i].line));
+			i = tokens.size(); // break;
+			return nullptr;
+		}
+
+		Constructor* catch_ = new Constructor();
+		catch_->setName("catch");
+
+		if (tokens[i + 1].value == "(") {
+			if (tokens[i + 2].value == ")") {
+				throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+				i = i + 1;
+				return nullptr;
+			}
+			else {
+				int bracket_end = findBracketClose(tokens, i + 2, 1);
+				if (bracket_end == -1) {
+					throwCompileMessage(CompileMessage(SL0027E, currentFileName, tokens[i + 2].line));
+					i = i + 1;
+					return nullptr;
+				}
+
+				Constructor* exception_expression = new Constructor();
+				exception_expression->setName("exception");
+
+				if (tokens[i + 2].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(SL0049E, currentFileName, tokens[i + 1].line));
+					i = bracket_end;
+					return nullptr;
+				}
+
+				if (tokens[i + 3].type != TokenType::IDENTIFIER) {
+					throwCompileMessage(CompileMessage(SL0050E, currentFileName, tokens[i + 2].line));
+					i = bracket_end;
+					return nullptr;
+				}
+
+				exception_expression->addProperty("type", tokens[i + 2].value);
+				exception_expression->addProperty("holder", tokens[i + 3].value);
+
+				catch_->addProperty(exception_expression);
+
+				if (!vec_check_index(tokens, bracket_end + 1)) {
+					throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[bracket_end + 1].line));
+					i = tokens.size(); // break;
+					return nullptr;
+				}
+
+				int body_end;
+
+				if (tokens[bracket_end + 1].value == "{") {
+					if (!vec_check_index(tokens, bracket_end + 2)) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+						i = tokens.size(); // break;
+						return nullptr;
+					}
+
+					int body_start = bracket_end + 1;
+					body_end = findBraceClose(tokens, bracket_end + 2, 1);
+					if (body_end == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+						i = body_start;
+						return nullptr;
+					}
+
+					Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+					body->setName("body");
+					catch_->addProperty(body);
+				}
+				else {
+					body_end = findNextSemicolon(tokens, bracket_end + 1);
+					if (body_end == -1) {
+						throwCompileMessage(CompileMessage(SL0032E, currentFileName, tokens[bracket_end + 1].line));
+						i = bracket_end;
+						return nullptr;
+					}
+
+					Constructor* body = getFunctionBody(tokens, Scope(bracket_end + 1, body_end));
+					body->setName("body");
+					catch_->addProperty(body);
+				}
+
+				if (temp == nullptr) {
+					throwCompileMessage(CompileMessage(SL0047E, currentFileName, tokens[i].line));
+					i = body_end;
+					state = CATCH;
+					return nullptr;
+				}
+
+				temp->addProperty(catch_);
+
+				i = body_end;
+
+				state = CATCH;
+
+				return nullptr;
+			}
+		}
+		else {
+			throwCompileMessage(CompileMessage(SL0043E, currentFileName, tokens[i + 2].line));
+			return nullptr;
+		}
+	}
+	else {
+		throwCompileMessage(CompileMessage(SL0047E, currentFileName, tokens[i].line));
+		state = NONE;
+		temp = nullptr;
+		return nullptr;
+	}
+}
+
+Constructor* SlentCompiler::parseFinally(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (state != CATCH) {
+		throwCompileMessage(CompileMessage(SL0048E, currentFileName, tokens[i].line));
+		state = NONE;
+		temp = nullptr;
+		return nullptr;
+	}
+
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value != "{") {
+		throwCompileMessage(CompileMessage(SL0044E, currentFileName, tokens[i].line));
+		return nullptr;
+	}
+
+	Constructor* finally_ = new Constructor();
+	finally_->setName("finally");
+
+	int body_start = i + 1;
+	int body_end = findBraceClose(tokens, body_start + 1, 1);
+
+	Constructor* body = getFunctionBody(tokens, Scope(body_start + 1, body_end - 1));
+	body->setName("body");
+	finally_->addProperty(body);
+
+	if (temp == nullptr) {
+		throwCompileMessage(CompileMessage(SL0048E, currentFileName, tokens[i].line));
+		i = body_end;
+		state = NONE;
+		temp = nullptr;
+		return nullptr;
+	}
+
+	temp->addProperty(finally_);
+
+	i = body_end;
+
+	state = NONE;
+	temp = nullptr;
+
+	return nullptr;
+}
+
+Constructor* SlentCompiler::parseBreak(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value != ";") {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
+		return nullptr;
+	}
+
+	Constructor* break_ = new Constructor();
+	break_->setName("break");
+
+	i = i + 1;
+
+	state = NONE;
+	temp = nullptr;
+
+	return break_;
+}
+
+Constructor* SlentCompiler::parseContinue(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	if (tokens[i + 1].value != ";") {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
+		return nullptr;
+	}
+
+	Constructor* continue_ = new Constructor();
+	continue_->setName("continue");
+
+	i = i + 1;
+
+	state = NONE;
+	temp = nullptr;
+
+	return continue_;
+}
+
+Constructor* SlentCompiler::parseReturn(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	if (!vec_check_index(tokens, i + 1)) {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[i].line));
+		i = tokens.size(); // break;
+		return nullptr;
+	}
+
+	Constructor* return_ = new Constructor();
+	return_->setName("return");
+
+	if (tokens[i + 1].value == ";") {
+		return_->addProperty("value", "");
+		return return_;
+	}
+
+	int next_semicolon = findNextSemicolon(tokens, i + 1);
+	if (next_semicolon == -1) {
+		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens.back().line));
+		next_semicolon = tokens.size() - 1;
+	}
+
+	auto result = getExpression(tokens, Scope(i + 1, next_semicolon), 0, true);
+	if (!get<bool>(result)) {
+		return nullptr;
+	}
+
+	Constructor* return_val_expression = get<Constructor*>(result);
+	return_->addProperty(return_val_expression);
+	i = next_semicolon;
+
+	return return_;
+}
+
+Constructor* SlentCompiler::parseGoto(vector<Token>& tokens, int& i, State& state, Constructor*& temp) {
+	return nullptr;
+}
+
+tuple<Constructor*, bool> SlentCompiler::getSwitchStatementBody(std::vector<Token> tokens, Scope scope)
+{
+	return std::tuple<Constructor*, bool>();
 }
 
 tuple<Constructor*, bool> SlentCompiler::getExpression(vector<Token> tokens, Scope scope, int depth, bool semicolon) {
@@ -2282,6 +3002,11 @@ Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& 
 		Constructor* constant = new Constructor(current_token.type == TokenType::CONSTANT ? "constant" : "literal", current_token.value);
 		current_token_index++;
 		return constant;
+	}
+	else if (current_token.value == "null") {
+		Constructor* null_value = new Constructor("sl_value", "null");
+		current_token_index++;
+		return null_value;
 	}
 	else if (current_token.type == TokenType::IDENTIFIER) {
 		std::string identifier_value = current_token.value;
@@ -2355,6 +3080,8 @@ Constructor* SlentCompiler::parsePrimary(const std::vector<Token>& tokens, int& 
 		current_token_index++;
 		return inner_expression;
 	}
+
+	if (current_token.value == ";") return nullptr;
 
 	throwCompileMessage(CompileMessage(SL0000E(current_token.value), currentFileName, current_token.line)); // Unrecognized token
 	return nullptr;
@@ -2440,9 +3167,12 @@ Constructor* SlentCompiler::parseExpressionPrecedence(const std::vector<Token>& 
 		left_expr = operation;
 	}
 
-	if (semicolon && depth == 0 && tokens[current_token_index].value != ";") {
-		throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[current_token_index - 1].line));
-		return nullptr;
+	if (semicolon && depth == 0) {
+		if (tokens[current_token_index].value == ";") current_token_index++;
+		else {
+			throwCompileMessage(CompileMessage(SL0018E, currentFileName, tokens[current_token_index - 1].line));
+			return nullptr;
+		}
 	}
 
 	return left_expr;
@@ -2477,7 +3207,7 @@ bool SlentCompiler::isPostfixOperator(const vector<Token>& tokens, int index) {
 	return op_info != nullptr && op_info->is_unary_postfix;
 }
 
-tuple<Constructor*, bool> SlentCompiler::getExternalFunction(vector<Token> tokens, int cursor, bool isDynamic) {
+tuple<Constructor*, bool> SlentCompiler::getExternalFunction(vector<Token>& tokens, int cursor, bool isDynamic) {
 	if (isDynamic) {
 		if (tokens[cursor].value == "dynamic") {
 			if (!vec_check_index(tokens, cursor + 1)) {
@@ -2581,7 +3311,7 @@ tuple<Constructor*, bool> SlentCompiler::getExternalFunction(vector<Token> token
 	}
 }
 
-vector<vector<Token>> SlentCompiler::split_token(vector<Token> tokens, Scope scope, string delimiter) {
+vector<vector<Token>> SlentCompiler::split_token(vector<Token>& tokens, Scope scope, string delimiter) {
 	vector<vector<Token>> split;
 	vector<Token> k;
 	for (int i = scope.start; i <= scope.end; i++) {
@@ -2606,7 +3336,7 @@ bool SlentCompiler::check_type(string type) {
 	return false;
 }
 
-int SlentCompiler::findBraceClose(vector<Token> tokens, int cursor, int current_brace) {
+int SlentCompiler::findBraceClose(vector<Token>& tokens, int cursor, int current_brace) {
 	int braces = current_brace;
 	for (int i = cursor; i < tokens.size(); i++) {
 		if (tokens[i].value == "{") {
@@ -2623,7 +3353,7 @@ int SlentCompiler::findBraceClose(vector<Token> tokens, int cursor, int current_
 	return -1;
 }
 
-int SlentCompiler::findBracketClose(vector<Token> tokens, int cursor, int current_bracket) {
+int SlentCompiler::findBracketClose(vector<Token>& tokens, int cursor, int current_bracket) {
 	int brackets = current_bracket;
 	for (int i = cursor; i < tokens.size(); i++) {
 		if (tokens[i].value == "(") {
@@ -2640,7 +3370,7 @@ int SlentCompiler::findBracketClose(vector<Token> tokens, int cursor, int curren
 	return -1;
 }
 
-int SlentCompiler::findNextSemicolon(vector<Token> tokens, int cursor) {
+int SlentCompiler::findNextSemicolon(vector<Token>& tokens, int cursor) {
 	for (int i = cursor; i < tokens.size(); i++) {
 		if (tokens[i].value == ";") {
 			return i;

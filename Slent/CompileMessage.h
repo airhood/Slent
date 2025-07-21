@@ -61,6 +61,11 @@
 #define SL0044E MessageType::ERROR, "Body missing."
 #define SL0045E MessageType::ERROR, "Missing initial value."
 #define SL0046E MessageType::ERROR, "else statement can only be used after if statement"
+#define SL0047E MessageType::ERROR, "try statement is required before catch statement"
+#define SL0048E MessageType::ERROR, "catch statement is required before finally statement"
+#define SL0049E MessageType::ERROR, "Missing exception type"
+#define SL0050E MessageType::ERROR, "Missing exception pass"
+#define SL0051E MessageType::ERROR, "Expression missing"
 
 
 #elif COMPILER_MESSAGE_LANG == KOREAN
