@@ -44,7 +44,11 @@ void SlentSystem::Run(int argc, char** argv) {
 		if (error) return;
 
 		cout << colorString("Loading files...", YELLOW) << endl << endl;
-		LoadFiles(configFilePath);
+		bool result = LoadFiles(configFilePath);
+		if (!result) {
+			cout << endl << colorString("Compile failed", RED) << endl;
+			return;
+		}
 
 		compiler->ConfigureSetting(setting);
 		compiler->Compile();
@@ -68,13 +72,13 @@ void SlentSystem::Run(int argc, char** argv) {
 	}
 }
 
-void SlentSystem::LoadFiles(std::string path) {
+bool SlentSystem::LoadFiles(std::string path) {
 	//currentPath = filesystem::current_path();
 
 	filesystem::path configFilePath = path;
 	if (configFilePath.extension() != ".config") {
 		cout << colorString(path + " is not slent config file.", RED) << endl;
-		return;
+		return false;
 	}
 
 	//int configFileCount = 0; // .config 파일 수 카운트
@@ -96,16 +100,19 @@ void SlentSystem::LoadFiles(std::string path) {
 	//	return;
 	//}
 
-	LoadConfigFile(configFilePath);
+	bool result = LoadConfigFile(configFilePath);
+	return result;
 }
 
-void SlentSystem::LoadConfigFile(filesystem::path configFilePath) {
+bool SlentSystem::LoadConfigFile(filesystem::path configFilePath) {
+	bool err = false;
+
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLError error = doc.LoadFile(configFilePath.string().c_str());
 
 	if (error != tinyxml2::XML_SUCCESS) {
 		cout << colorString("Error while reading config file: " + string(doc.ErrorIDToName(error)), RED) << endl << doc.ErrorStr() << endl;
-		return;
+		return false;
 	}
 
 	tinyxml2::XMLElement* root = doc.FirstChildElement("Slent");
@@ -121,7 +128,8 @@ void SlentSystem::LoadConfigFile(filesystem::path configFilePath) {
 					if (sourceFilePath.extension() != ".sl") {
 						cout << colorString("Source file's extension must be .sl", RED) << endl;
 					}
-					LoadSourceFile(sourceFilePath);
+					bool result = LoadSourceFile(sourceFilePath);
+					if (!result) err = true;
 				}
 			}
 		}
@@ -136,19 +144,24 @@ void SlentSystem::LoadConfigFile(filesystem::path configFilePath) {
 					filesystem::path libraryConfigFilePath = configFilePath.parent_path() / "lib" / path;
 					if (libraryConfigFilePath.extension() != ".config") {
 						cout << colorString("Library config file's extension must be .config", RED) << endl;
-						return;
+						return false;
 					}
-					LoadConfigFile(libraryConfigFilePath);
+					bool result = LoadConfigFile(libraryConfigFilePath);
+					if (!result) err = true;
 				}
 			}
 		}
 	}
 	else {
 		cout << colorString("<Slent> missing.", RED) << endl;
+		return false;
 	}
+
+	if (err) return false;
+	return true;
 }
 
-void SlentSystem::LoadSourceFile(filesystem::path sourceFilePath) {
+bool SlentSystem::LoadSourceFile(filesystem::path sourceFilePath) {
 	if (filesystem::exists(sourceFilePath)) {
 		string fileName = sourceFilePath.filename().string();
 		ifstream file(sourceFilePath);
@@ -162,12 +175,15 @@ void SlentSystem::LoadSourceFile(filesystem::path sourceFilePath) {
 			file.close();
 
 			compiler->AddFile(fileName, fullContent);
+			return true;
 		}
 		else {
 			cout << colorString("Cannot open file named '" + fileName + "'.", RED) << endl;
+			return false;
 		}
 	}
 	else {
 		cout << colorString("File named '" + sourceFilePath.filename().string() + "' does not exist.", RED) << endl;
+		return false;
 	}
 }

@@ -104,7 +104,6 @@ namespace Slent {
         "goto",
     };
 
-    // Enum for message types
     enum class MessageType {
         ERROR,
         WARNING,
@@ -121,7 +120,6 @@ namespace Slent {
             type(type), message(message), file_name(file_name), line_index(line_index) {}
     };
 
-    // Structure representing a scope
     struct Scope {
         int start;
         int end;
@@ -335,14 +333,18 @@ namespace Slent {
         bool isPostfixOperator(const std::vector<Token>& tokens, int index);
 
         std::tuple<Constructor*, bool> getExternalFunction(std::vector<Token>& tokens, int cursor, bool isDynamic);
+
         std::vector<std::vector<Token>> split_token(std::vector<Token>& tokens, Scope scope, std::string delimiter);
-        bool check_type(std::string type);
+
         int findBraceClose(std::vector<Token>& tokens, int cursor, int current_brace);
         int findBracketClose(std::vector<Token>& tokens, int cursor, int current_bracket);
         int findNextSemicolon(std::vector<Token>& tokens, int cursor);
 
-        // code generator
+        // bytecode generator
         std::string bytecode(Constructor* ast);
+        bool check_type(std::string type);
+
+        // bytecode optimizer
         void optimize();
 
         // error handling

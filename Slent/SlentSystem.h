@@ -19,9 +19,9 @@ namespace Slent {
 		void Run(int argc, char** argv);
 
 	private:
-		void LoadFiles(std::string path);
-		void LoadConfigFile(std::filesystem::path configFilePath);
-		void LoadSourceFile(std::filesystem::path sourceFilePath);
+		bool LoadFiles(std::string path);
+		bool LoadConfigFile(std::filesystem::path configFilePath);
+		bool LoadSourceFile(std::filesystem::path sourceFilePath);
 		
 		//std::filesystem::path currentPath;
 

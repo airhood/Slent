@@ -150,6 +150,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="code_highlighter.cpp" />
+    <ClCompile Include="code_highlighter.h" />
     <ClCompile Include="Constructor.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Slent.cpp" />

@@ -747,7 +747,7 @@ int SlentCompiler::t_find_next(vector<Token> tokens, int cursor, vector<string> 
 vector<Token> SlentCompiler::lexer(string code) {
 	vector<Token> tokens;
 
-	regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+\+|\-\-|\+|\-|\*|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
+	regex tokenRegex(R"(->|==|=|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|\+\+|\-\-|\+|\-|\*|\%|\/|<|>|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"|\(|\)|\{|\}|\[|\]|:|;|<|>|\.|,)");
 	// \+|-|\*|\/|<=|>=|<|>|==|!=|\|\||&&|!|[a-zA-Z_][a-zA-Z0-9_]*|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*|\d*\.\d+)\b|"[^"]*"
 	smatch match;
 
@@ -767,7 +767,7 @@ vector<Token> SlentCompiler::lexer(string code) {
 			else if (regex_match(matched, regex("[0-9]+(\\.[0-9]+)?"))) {
 				tokens.push_back(Token(TokenType::CONSTANT, matched, i));
 			}
-			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+\+|\-\-|\+|\-|\*|\/|<|>|\|\||&&|!)"))) {
+			else if (regex_match(matched, regex(R"(==|!=|<=|>=|\+\=|\-\=|\*\=|\/\=|\%\=|=|\+\+|\-\-|\+|\-|\*|\%|\/|<|>|\|\||&&|!)"))) {
 				tokens.push_back(Token(TokenType::OPERATOR, matched, i));
 			}
 			else if (regex_match(matched, regex(R"(\(|\)|\{|\}|\[|\]|:|;|<|>|\.|\,)"))) {
@@ -3324,18 +3324,6 @@ vector<vector<Token>> SlentCompiler::split_token(vector<Token>& tokens, Scope sc
 	return split;
 }
 
-// check if the type is available to use for variable type or function return type
-bool SlentCompiler::check_type(string type) {
-	// check implemented types
-	if ((type == "int") || (type == "string") || (type == "bool") || (type == "float") || (type == "double") || (type == "char") || (type == "short")) {
-		return true;
-	}
-
-	// TODO: check type with decleared class
-
-	return false;
-}
-
 int SlentCompiler::findBraceClose(vector<Token>& tokens, int cursor, int current_brace) {
 	int braces = current_brace;
 	for (int i = cursor; i < tokens.size(); i++) {
@@ -3391,6 +3379,33 @@ string SlentCompiler::bytecode(Constructor* ast) {
 	return bytecode;
 }
 
+bool SlentCompiler::check_type(string type) {
+	if ((type == "object")
+		|| (type == "bool")
+		|| (type == "char")
+		|| (type == "int")
+		|| (type == "int8")
+		|| (type == "int16")
+		|| (type == "int32")
+		|| (type == "int64")
+		|| (type == "uint")
+		|| (type == "uint8")
+		|| (type == "uint16")
+		|| (type == "uint32")
+		|| (type == "uint64")
+		|| (type == "float32")
+		|| (type == "float64")
+		|| (type == "decimal")
+		|| (type == "string")
+		) {
+		return true;
+	}
+
+	// TODO: check type with decleared class
+
+	return false;
+}
+
 void SlentCompiler::optimize() {
 
 }
@@ -3427,6 +3442,8 @@ void SlentCompiler::AddFile(string file_name, string code) {
 	code_files.push_back(make_tuple(file_name, code));
 }
 
+#include "code_highlighter.h"
+
 void SlentCompiler::Compile() {
 	_error = false;
 
@@ -3443,7 +3460,10 @@ void SlentCompiler::Compile() {
 
 			if (compilerSetting.trace_compile_logs) {
 				cout << "[ source code ]" << endl;
-				vector<string> split_code = split(code, '\n');
+
+				string highlighted_code = highlightSlentCode(code);
+
+				vector<string> split_code = split(highlighted_code, '\n');
 				int maxNumLength = to_string(split_code.size()).length();
 				for (int i = 1; i <= split_code.size(); i++) {
 					int numLength = to_string(i).length();
@@ -3491,7 +3511,10 @@ void SlentCompiler::Compile() {
 			string preprocessed_code = preprocess(module_tree, no_comment_codes[i], macros);
 			if (compilerSetting.trace_compile_logs) {
 				cout << "[ preprocessed_code ]" << endl;
-				vector<string> split_preprocessed_code = split(preprocessed_code, '\n');
+
+				string highlighted_preprocessed_code = highlightSlentCode(preprocessed_code);
+				
+				vector<string> split_preprocessed_code = split(highlighted_preprocessed_code, '\n');
 				int maxNumLength = to_string(split_preprocessed_code.size()).length();
 				for (int j = 1; j <= split_preprocessed_code.size(); j++) {
 					int numLength = to_string(j).length();
